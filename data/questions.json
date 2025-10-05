@@ -1,0 +1,745 @@
+{
+  "tier_1_fundamentals": {
+    "title": "Hypertrophy Fundamentals",
+    "description": "Essential muscle growth principles - Need 16/20 to pass",
+    "passing_percentage": 0.8,
+    "questions": [
+      {
+        "id": "T1_Q1",
+        "question": "What is the primary driver of muscle hypertrophy according to current research?",
+        "explanation": "Understanding the hierarchy of hypertrophy mechanisms is crucial.",
+        "options": [
+          {"text": "Metabolic stress (the burn sensation)", "correct": false},
+          {"text": "Mechanical tension, especially in stretched positions", "correct": true},
+          {"text": "Muscle damage and soreness", "correct": false},
+          {"text": "Blood flow restriction", "correct": false}
+        ],
+        "detailed_explanation": "Mechanical tension, particularly when muscles are under load in lengthened positions, provides the strongest stimulus for hypertrophy."
+      },
+      {
+        "id": "T1_Q2",
+        "question": "What weekly volume range optimizes hypertrophy for most intermediate trainees?",
+        "explanation": "Volume follows a dose-response relationship with clear optimal ranges.",
+        "options": [
+          {"text": "6-10 sets per muscle per week", "correct": false},
+          {"text": "12-20 sets per muscle per week", "correct": true},
+          {"text": "25-30 sets per muscle per week", "correct": false},
+          {"text": "35+ sets per muscle per week", "correct": false}
+        ],
+        "detailed_explanation": "Research shows 12-20 sets per muscle per week optimizes hypertrophy for intermediates, balancing stimulus and recovery."
+      },
+      {
+        "id": "T1_Q3",
+        "question": "How close to failure should most hypertrophy sets be performed?",
+        "explanation": "Proximity to failure affects muscle fiber recruitment.",
+        "options": [
+          {"text": "5+ reps in reserve (very easy)", "correct": false},
+          {"text": "0-3 reps in reserve (challenging but controlled)", "correct": true},
+          {"text": "Always to complete muscular failure", "correct": false},
+          {"text": "Training intensity doesn't matter", "correct": false}
+        ],
+        "detailed_explanation": "Training within 0-3 reps of failure ensures high motor unit recruitment while managing fatigue."
+      },
+      {
+        "id": "T1_Q4",
+        "question": "What training frequency per muscle group optimizes hypertrophy?",
+        "explanation": "Frequency interacts with volume distribution and protein synthesis.",
+        "options": [
+          {"text": "Once per week with high volume", "correct": false},
+          {"text": "2-3 times per week with distributed volume", "correct": true},
+          {"text": "Every day with low volume", "correct": false},
+          {"text": "Frequency doesn't matter", "correct": false}
+        ],
+        "detailed_explanation": "Training each muscle 2-3x per week allows better volume distribution and more frequent protein synthesis stimulation."
+      },
+      {
+        "id": "T1_Q5",
+        "question": "Which rep range provides the most effective hypertrophy stimulus?",
+        "explanation": "Different rep ranges can produce hypertrophy when effort is high.",
+        "options": [
+          {"text": "1-5 reps only", "correct": false},
+          {"text": "6-20 reps with emphasis on 8-15", "correct": true},
+          {"text": "Exactly 8-12 reps only", "correct": false},
+          {"text": "20+ reps only", "correct": false}
+        ],
+        "detailed_explanation": "While hypertrophy can occur across rep ranges, 6-20 reps (especially 8-15) provides optimal mechanical tension with manageable fatigue."
+      },
+      {
+        "id": "T1_Q6",
+        "question": "How much protein should be consumed daily for optimal muscle protein synthesis?",
+        "explanation": "Protein intake has dose-response relationships with muscle building.",
+        "options": [
+          {"text": "0.8g per kg bodyweight", "correct": false},
+          {"text": "1.6-2.2g per kg bodyweight", "correct": true},
+          {"text": "3.0+ g per kg bodyweight", "correct": false},
+          {"text": "1.0g per kg bodyweight", "correct": false}
+        ],
+        "detailed_explanation": "Research shows 1.6-2.2g protein per kg bodyweight maximizes muscle protein synthesis rates."
+      },
+      {
+        "id": "T1_Q7",
+        "question": "What constitutes effective progressive overload?",
+        "explanation": "Progressive overload drives adaptation over time.",
+        "options": [
+          {"text": "Only adding weight to exercises", "correct": false},
+          {"text": "Systematically increasing weight, reps, sets, or frequency", "correct": true},
+          {"text": "Training harder subjectively", "correct": false},
+          {"text": "Changing exercises weekly", "correct": false}
+        ],
+        "detailed_explanation": "Progressive overload can be achieved by adding weight, reps, sets, or improving form quality - not just loading heavier."
+      },
+      {
+        "id": "T1_Q8",
+        "question": "How important is exercise variety for complete muscle development?",
+        "explanation": "Exercise selection affects regional muscle development.",
+        "options": [
+          {"text": "One exercise per muscle is sufficient", "correct": false},
+          {"text": "2-4 exercises per muscle optimizes development", "correct": true},
+          {"text": "8+ exercises per muscle required", "correct": false},
+          {"text": "Variety is counterproductive", "correct": false}
+        ],
+        "detailed_explanation": "Using 2-4 exercises per muscle ensures complete development by targeting different regions and movement patterns."
+      },
+      {
+        "id": "T1_Q9",
+        "question": "What rest periods optimize hypertrophy training?",
+        "explanation": "Rest affects subsequent set performance and total volume.",
+        "options": [
+          {"text": "30-60 seconds maximum", "correct": false},
+          {"text": "2-5 minutes depending on exercise", "correct": true},
+          {"text": "Exactly 90 seconds always", "correct": false},
+          {"text": "10+ minutes like powerlifting", "correct": false}
+        ],
+        "detailed_explanation": "Rest periods of 2-5 minutes allow sufficient recovery to maintain performance across sets."
+      },
+      {
+        "id": "T1_Q10",
+        "question": "How does sleep quality impact muscle hypertrophy?",
+        "explanation": "Sleep affects multiple recovery and adaptation processes.",
+        "options": [
+          {"text": "Minimal impact on hypertrophy", "correct": false},
+          {"text": "Critical - poor sleep significantly impairs muscle protein synthesis", "correct": true},
+          {"text": "Only affects strength, not size", "correct": false},
+          {"text": "More sleep is always better", "correct": false}
+        ],
+        "detailed_explanation": "Poor sleep reduces muscle protein synthesis rates, impairs recovery, and significantly limits adaptations."
+      },
+      {
+        "id": "T1_Q11",
+        "question": "What is the minimum effective dose for muscle hypertrophy?",
+        "explanation": "A threshold exists below which hypertrophy is minimal.",
+        "options": [
+          {"text": "Any resistance training causes growth", "correct": false},
+          {"text": "6-8 challenging sets per muscle per week", "correct": true},
+          {"text": "20+ sets per muscle per week", "correct": false},
+          {"text": "One session per muscle per month", "correct": false}
+        ],
+        "detailed_explanation": "Approximately 6-8 challenging sets per muscle per week represents the minimum effective dose for meaningful hypertrophy."
+      },
+      {
+        "id": "T1_Q12",
+        "question": "How do compound vs isolation exercises compare for hypertrophy?",
+        "explanation": "Different exercise types provide distinct benefits.",
+        "options": [
+          {"text": "Only compound exercises needed", "correct": false},
+          {"text": "Both have roles - compounds for efficiency, isolations for targeting", "correct": true},
+          {"text": "Only isolations effectively target muscles", "correct": false},
+          {"text": "Exercise type doesn't matter", "correct": false}
+        ],
+        "detailed_explanation": "Compounds provide efficient multi-muscle stimulus while isolations can target specific muscles and address weak points."
+      },
+      {
+        "id": "T1_Q13",
+        "question": "What role does tempo (rep speed) play in hypertrophy?",
+        "explanation": "Time under tension and tempo interact with hypertrophy stimulus.",
+        "options": [
+          {"text": "Extremely slow tempo (10+ seconds per rep) is required", "correct": false},
+          {"text": "Controlled tempo (1-3 sec eccentric, 1 sec concentric) is optimal", "correct": true},
+          {"text": "Explosive reps only for hypertrophy", "correct": false},
+          {"text": "Tempo has no effect on muscle growth", "correct": false}
+        ],
+        "detailed_explanation": "Controlled tempo ensures quality mechanical tension. Excessively slow tempos limit load, while explosive reps may reduce tension."
+      },
+      {
+        "id": "T1_Q14",
+        "question": "How does deload timing fit into hypertrophy training?",
+        "explanation": "Strategic recovery periods prevent overreaching and support long-term progress.",
+        "options": [
+          {"text": "Deloads are unnecessary for hypertrophy", "correct": false},
+          {"text": "Every 4-8 weeks, reduce volume/intensity by 40-60%", "correct": true},
+          {"text": "Deload every single week", "correct": false},
+          {"text": "Only deload when injured", "correct": false}
+        ],
+        "detailed_explanation": "Planned deloads every 4-8 weeks allow accumulated fatigue to dissipate while maintaining adaptations."
+      },
+      {
+        "id": "T1_Q15",
+        "question": "What is the optimal training split for hypertrophy?",
+        "explanation": "Training split affects recovery, frequency, and volume distribution.",
+        "options": [
+          {"text": "Full body 6x per week is always best", "correct": false},
+          {"text": "Depends on frequency - full body, upper/lower, or PPL can all work", "correct": true},
+          {"text": "Bro split (chest Monday, back Tuesday, etc.) is optimal", "correct": false},
+          {"text": "Training split has no impact", "correct": false}
+        ],
+        "detailed_explanation": "Multiple splits work if they allow 2-3x frequency per muscle and proper recovery. Choose based on schedule and preferences."
+      },
+      {
+        "id": "T1_Q16",
+        "question": "How important is mind-muscle connection for hypertrophy?",
+        "explanation": "Internal vs external focus affects muscle activation patterns.",
+        "options": [
+          {"text": "Critical - always focus on feeling the muscle", "correct": false},
+          {"text": "Helpful for isolations, less important for compounds", "correct": true},
+          {"text": "Mind-muscle connection prevents growth", "correct": false},
+          {"text": "Only matters for advanced lifters", "correct": false}
+        ],
+        "detailed_explanation": "Mind-muscle connection can enhance isolation exercise effectiveness, but external focus (moving weight) works better for compounds."
+      },
+      {
+        "id": "T1_Q17",
+        "question": "What is the relationship between cardio and hypertrophy?",
+        "explanation": "Concurrent training affects recovery and adaptation signaling.",
+        "options": [
+          {"text": "All cardio kills gains", "correct": false},
+          {"text": "Moderate cardio (2-3x weekly, low-moderate intensity) doesn't impair hypertrophy", "correct": true},
+          {"text": "Daily high-intensity cardio optimizes muscle growth", "correct": false},
+          {"text": "Cardio is required for hypertrophy", "correct": false}
+        ],
+        "detailed_explanation": "Moderate cardio improves cardiovascular health and recovery without impairing hypertrophy. Excessive volume can interfere."
+      },
+      {
+        "id": "T1_Q18",
+        "question": "How does age affect hypertrophy potential?",
+        "explanation": "Aging influences protein synthesis rates and training adaptations.",
+        "options": [
+          {"text": "Hypertrophy is impossible after 40", "correct": false},
+          {"text": "Hypertrophy is possible at all ages, though older adults may need more volume/protein", "correct": true},
+          {"text": "Age has no effect on muscle growth", "correct": false},
+          {"text": "Only young people can build muscle", "correct": false}
+        ],
+        "detailed_explanation": "Muscle growth is achievable at any age. Older adults may benefit from slightly higher protein intake and volume."
+      },
+      {
+        "id": "T1_Q19",
+        "question": "What is the role of carbohydrates in hypertrophy training?",
+        "explanation": "Carbohydrate intake affects training performance and recovery.",
+        "options": [
+          {"text": "Carbs are unnecessary for muscle growth", "correct": false},
+          {"text": "Adequate carbs support training performance and recovery", "correct": true},
+          {"text": "Very high carb intake (6-8g/kg) is required", "correct": false},
+          {"text": "Ketogenic diets are optimal for hypertrophy", "correct": false}
+        ],
+        "detailed_explanation": "Carbohydrates fuel high-intensity training and support recovery. Moderate intake (3-5g/kg) works well for most people."
+      },
+      {
+        "id": "T1_Q20",
+        "question": "How should training be adjusted during a caloric deficit?",
+        "explanation": "Energy availability affects training capacity and recovery.",
+        "options": [
+          {"text": "Increase training volume during a cut", "correct": false},
+          {"text": "Maintain intensity, reduce volume slightly if needed", "correct": true},
+          {"text": "Stop training completely", "correct": false},
+          {"text": "Switch to only cardio", "correct": false}
+        ],
+        "detailed_explanation": "During deficits, prioritize maintaining training intensity while volume may need slight reduction due to reduced recovery capacity."
+      }
+    ]
+  },
+  
+  "tier_2_intermediate": {
+    "title": "Intermediate Hypertrophy Concepts",
+    "description": "Advanced training principles - Need 16/20 to pass",
+    "passing_percentage": 0.8,
+    "questions": [
+      {
+        "id": "T2_Q1",
+        "question": "How does training volume interact with intensity for hypertrophy?",
+        "explanation": "Volume and intensity have complex relationships with recovery.",
+        "options": [
+          {"text": "High volume always requires low intensity", "correct": false},
+          {"text": "Volume and intensity can be traded off based on recovery capacity", "correct": true},
+          {"text": "Volume and intensity must be maximized together", "correct": false},
+          {"text": "They are completely independent", "correct": false}
+        ],
+        "detailed_explanation": "Higher intensity can produce similar hypertrophy with lower volumes. The relationship depends on individual recovery capacity."
+      },
+      {
+        "id": "T2_Q2",
+        "question": "What is the concept of 'effective reps' in hypertrophy?",
+        "explanation": "Not all reps contribute equally due to motor unit recruitment.",
+        "options": [
+          {"text": "All reps are equally effective", "correct": false},
+          {"text": "Only the last ~5 challenging reps recruit enough fibers for growth", "correct": true},
+          {"text": "Only first reps when fresh are effective", "correct": false},
+          {"text": "Effective reps only apply to compounds", "correct": false}
+        ],
+        "detailed_explanation": "Due to the size principle, high-threshold motor units are only recruited when fatigue accumulates in the last challenging reps."
+      },
+      {
+        "id": "T2_Q3",
+        "question": "How should volume be distributed across the week?",
+        "explanation": "Distribution affects training quality and protein synthesis frequency.",
+        "options": [
+          {"text": "All volume in one session per muscle", "correct": false},
+          {"text": "Evenly distributed across 2-3 sessions per muscle", "correct": true},
+          {"text": "Front-loaded early in the week", "correct": false},
+          {"text": "Distribution doesn't matter", "correct": false}
+        ],
+        "detailed_explanation": "Distributing volume maintains training quality, improves recovery, and provides more frequent protein synthesis stimulation."
+      },
+      {
+        "id": "T2_Q4",
+        "question": "What is the relationship between muscle length and hypertrophy?",
+        "explanation": "Length-tension relationship affects growth stimulus.",
+        "options": [
+          {"text": "Muscle length doesn't affect hypertrophy", "correct": false},
+          {"text": "Training in stretched positions generally produces superior hypertrophy", "correct": true},
+          {"text": "Shortened positions are always superior", "correct": false},
+          {"text": "Only mid-range matters", "correct": false}
+        ],
+        "detailed_explanation": "Exercises emphasizing stretched positions produce superior hypertrophy due to enhanced mechanical tension and stretch-mediated signaling."
+      },
+      {
+        "id": "T2_Q5",
+        "question": "How does exercise order affect hypertrophy outcomes?",
+        "explanation": "Sequencing affects performance and stimulus distribution.",
+        "options": [
+          {"text": "Order has no effect", "correct": false},
+          {"text": "Earlier exercises receive higher quality stimulus due to less fatigue", "correct": true},
+          {"text": "Always go isolation to compound", "correct": false},
+          {"text": "Random order is optimal", "correct": false}
+        ],
+        "detailed_explanation": "Earlier exercises are performed with less fatigue, allowing higher loads. Priority muscles should be trained first."
+      },
+      {
+        "id": "T2_Q6",
+        "question": "What is the stimulus-to-fatigue ratio concept?",
+        "explanation": "Different exercises provide varying amounts of hypertrophy stimulus relative to fatigue cost.",
+        "options": [
+          {"text": "All exercises have identical stimulus-to-fatigue ratios", "correct": false},
+          {"text": "Isolation exercises often have better ratios than heavy compounds", "correct": true},
+          {"text": "Only do exercises with perfect ratios", "correct": false},
+          {"text": "Fatigue doesn't matter for hypertrophy", "correct": false}
+        ],
+        "detailed_explanation": "Isolations can target muscles effectively with less systemic fatigue than heavy compounds, allowing higher per-muscle volumes."
+      },
+      {
+        "id": "T2_Q7",
+        "question": "How does training close to failure affect different rep ranges?",
+        "explanation": "Proximity to failure requirements vary with load and rep range.",
+        "options": [
+          {"text": "All rep ranges require training to complete failure", "correct": false},
+          {"text": "Lower reps (5-8) can be further from failure; higher reps (12-20) need closer proximity", "correct": true},
+          {"text": "Higher reps should stop 5+ RIR", "correct": false},
+          {"text": "Rep range doesn't affect failure proximity needs", "correct": false}
+        ],
+        "detailed_explanation": "Lower rep sets recruit most fibers earlier; higher rep sets need proximity to failure to recruit high-threshold motor units."
+      },
+      {
+        "id": "T2_Q8",
+        "question": "What is the optimal training frequency for different muscle groups?",
+        "explanation": "Muscle group size and recovery rates affect optimal frequency.",
+        "options": [
+          {"text": "All muscles need identical frequency", "correct": false},
+          {"text": "Smaller muscles (arms, calves) can often handle higher frequency than larger ones", "correct": true},
+          {"text": "Larger muscles need more frequent training", "correct": false},
+          {"text": "Train every muscle only once per week", "correct": false}
+        ],
+        "detailed_explanation": "Smaller muscle groups typically recover faster and can be trained more frequently (3-4x) than larger groups (2-3x)."
+      },
+      {
+        "id": "T2_Q9",
+        "question": "How do partial reps in stretched positions compare to full ROM?",
+        "explanation": "Lengthened partials provide unique stimulus characteristics.",
+        "options": [
+          {"text": "Partial reps are always inferior", "correct": false},
+          {"text": "Lengthened partials can match or exceed full ROM for some muscles", "correct": true},
+          {"text": "Only do partials, never full ROM", "correct": false},
+          {"text": "Partials only work for advanced lifters", "correct": false}
+        ],
+        "detailed_explanation": "Lengthened partials maximize mechanical tension in stretched positions and can be especially effective for certain muscles."
+      },
+      {
+        "id": "T2_Q10",
+        "question": "What is the relationship between training volume and training age?",
+        "explanation": "Experience level affects optimal training volumes.",
+        "options": [
+          {"text": "Volume needs don't change with experience", "correct": false},
+          {"text": "More advanced trainees generally need progressively higher volumes", "correct": true},
+          {"text": "Beginners need the highest volumes", "correct": false},
+          {"text": "Advanced trainees should reduce volume", "correct": false}
+        ],
+        "detailed_explanation": "As trainees advance, they adapt to lower volumes and typically need progressively higher volumes to continue progressing."
+      },
+      {
+        "id": "T2_Q11",
+        "question": "How does exercise technique affect hypertrophy stimulus?",
+        "explanation": "Form quality influences muscle tension and injury risk.",
+        "options": [
+          {"text": "Perfect textbook form is always required", "correct": false},
+          {"text": "Controlled form with full ROM for target muscle is optimal", "correct": true},
+          {"text": "Cheat reps always produce more growth", "correct": false},
+          {"text": "Form doesn't matter if weight is heavy", "correct": false}
+        ],
+        "detailed_explanation": "Form should ensure the target muscle is loaded effectively through a full ROM while managing injury risk."
+      },
+      {
+        "id": "T2_Q12",
+        "question": "What is the role of intra-set rest (rest-pause) in hypertrophy?",
+        "explanation": "Strategic rest within sets can extend effective rep accumulation.",
+        "options": [
+          {"text": "Rest-pause sets are useless", "correct": false},
+          {"text": "Can accumulate more effective reps when used strategically", "correct": true},
+          {"text": "Should be used on every single set", "correct": false},
+          {"text": "Only for strength training", "correct": false}
+        ],
+        "detailed_explanation": "Rest-pause allows accumulation of additional effective reps after initial failure, but creates high fatigue."
+      },
+      {
+        "id": "T2_Q13",
+        "question": "How does muscle damage relate to muscle growth?",
+        "explanation": "The relationship between soreness and hypertrophy is often misunderstood.",
+        "options": [
+          {"text": "More soreness always means more growth", "correct": false},
+          {"text": "Muscle damage can contribute to growth but isn't required", "correct": true},
+          {"text": "Avoid all muscle damage for optimal growth", "correct": false},
+          {"text": "Only damaged muscles grow", "correct": false}
+        ],
+        "detailed_explanation": "Some damage can stimulate growth, but excessive damage impairs recovery. Soreness isn't a reliable growth indicator."
+      },
+      {
+        "id": "T2_Q14",
+        "question": "What is the optimal loading spectrum for complete muscle development?",
+        "explanation": "Different load ranges may stimulate different muscle fiber types.",
+        "options": [
+          {"text": "Only train in the 8-12 rep range", "correct": false},
+          {"text": "Use a spectrum from 5-30 reps across different exercises", "correct": true},
+          {"text": "Only heavy loads (1-5 reps) build muscle", "correct": false},
+          {"text": "Only light loads (20+ reps) are safe", "correct": false}
+        ],
+        "detailed_explanation": "Training across load spectrums ensures complete fiber type recruitment and varied mechanical stimuli."
+      },
+      {
+        "id": "T2_Q15",
+        "question": "How should exercises be progressed over time?",
+        "explanation": "Systematic progression drives continued adaptation.",
+        "options": [
+          {"text": "Change exercises every single workout", "correct": false},
+          {"text": "Progress same exercises for 4-12 weeks, then rotate", "correct": true},
+          {"text": "Never change exercises", "correct": false},
+          {"text": "Randomly select exercises daily", "correct": false}
+        ],
+        "detailed_explanation": "Sticking with exercises long enough to progress them systematically, then rotating to avoid staleness and target muscles differently."
+      },
+      {
+        "id": "T2_Q16",
+        "question": "What is the relationship between muscle fiber type and training adaptations?",
+        "explanation": "Fiber type distributions can influence optimal training approaches.",
+        "options": [
+          {"text": "Fiber type can't be changed and doesn't matter", "correct": false},
+          {"text": "Different muscles have varying fiber types; training can shift characteristics", "correct": true},
+          {"text": "All muscles have identical fiber types", "correct": false},
+          {"text": "Only genetics determine fiber type", "correct": false}
+        ],
+        "detailed_explanation": "Muscles vary in fiber type composition. Training can induce fiber type transitions and should address this variability."
+      },
+      {
+        "id": "T2_Q17",
+        "question": "How does training variation affect long-term progress?",
+        "explanation": "Variation timing impacts progression and adaptation.",
+        "options": [
+          {"text": "Change everything constantly for muscle confusion", "correct": false},
+          {"text": "Maintain core exercises while varying angles, rep ranges, and intensities", "correct": true},
+          {"text": "Never vary anything", "correct": false},
+          {"text": "Variation prevents muscle growth", "correct": false}
+        ],
+        "detailed_explanation": "Strategic variation in rep ranges and exercise angles prevents accommodation while maintaining progressive overload on core movements."
+      },
+      {
+        "id": "T2_Q18",
+        "question": "What is the role of eccentric training in hypertrophy?",
+        "explanation": "The lowering phase of exercises has unique characteristics.",
+        "options": [
+          {"text": "Eccentric phase is irrelevant", "correct": false},
+          {"text": "Controlled eccentrics enhance tension and growth, especially in stretched positions", "correct": true},
+          {"text": "Drop the weight quickly on eccentrics", "correct": false},
+          {"text": "Only concentric phase matters", "correct": false}
+        ],
+        "detailed_explanation": "Controlled eccentric phases (2-3 seconds) maximize mechanical tension, particularly when emphasizing stretched positions."
+      },
+      {
+        "id": "T2_Q19",
+        "question": "How does nutrient timing affect hypertrophy adaptations?",
+        "explanation": "Meal timing around training can influence recovery and growth.",
+        "options": [
+          {"text": "Nutrient timing is completely irrelevant", "correct": false},
+          {"text": "Protein around training is beneficial; precise timing is less critical than total intake", "correct": true},
+          {"text": "Must eat protein within 30-minute anabolic window", "correct": false},
+          {"text": "Only pre-workout nutrition matters", "correct": false}
+        ],
+        "detailed_explanation": "Having protein around training supports recovery, but total daily protein is more important than precise timing windows."
+      },
+      {
+        "id": "T2_Q20",
+        "question": "What is the relationship between training density and hypertrophy?",
+        "explanation": "Work performed per unit time affects stimulus and fatigue.",
+        "options": [
+          {"text": "Train as fast as possible with minimal rest", "correct": false},
+          {"text": "Density should support performance; rushing rest periods compromises volume", "correct": true},
+          {"text": "Always maximize rest periods to 10+ minutes", "correct": false},
+          {"text": "Training density doesn't affect outcomes", "correct": false}
+        ],
+        "detailed_explanation": "Rest periods should allow performance maintenance. Excessive density reduces set quality; excessive rest wastes time unnecessarily."
+      }
+    ]
+  },
+  
+  "tier_3_advanced": {
+    "title": "Advanced Hypertrophy Optimization",
+    "description": "Expert-level programming - Need 16/20 to pass",
+    "passing_percentage": 0.8,
+    "questions": [
+      {
+        "id": "T3_Q1",
+        "question": "How do you optimize Maximum Recoverable Volume (MRV)?",
+        "explanation": "MRV varies dramatically between individuals and muscle groups.",
+        "options": [
+          {"text": "MRV is the same for all muscles (16-20 sets)", "correct": false},
+          {"text": "MRV depends on exercise selection, recovery factors, and individual capacity", "correct": true},
+          {"text": "MRV correlates directly with muscle size", "correct": false},
+          {"text": "Always train at MRV", "correct": false}
+        ],
+        "detailed_explanation": "MRV is highly individual and varies by muscle based on exercise selection, recovery capacity, stress, sleep, and genetics."
+      },
+      {
+        "id": "T3_Q2",
+        "question": "How do you account for regional hypertrophy in programming?",
+        "explanation": "Different exercises preferentially develop different muscle regions.",
+        "options": [
+          {"text": "All exercises produce identical development", "correct": false},
+          {"text": "Exercise angle, resistance profile, and length affect regional growth", "correct": true},
+          {"text": "Regional hypertrophy is purely genetic", "correct": false},
+          {"text": "Only isolations target regions", "correct": false}
+        ],
+        "detailed_explanation": "Exercise selection can preferentially develop muscle regions through biomechanical differences in fiber recruitment patterns."
+      },
+      {
+        "id": "T3_Q3",
+        "question": "How should lengthened partials and intensity techniques be implemented?",
+        "explanation": "Advanced techniques enhance tension but increase fatigue costs.",
+        "options": [
+          {"text": "Use on every set for maximum stimulus", "correct": false},
+          {"text": "Apply selectively to priority muscles accounting for fatigue", "correct": true},
+          {"text": "These provide no additional benefit", "correct": false},
+          {"text": "Only during specialization phases", "correct": false}
+        ],
+        "detailed_explanation": "Intensity techniques create significant fatigue and should be applied strategically to priority areas within recovery capacity."
+      },
+      {
+        "id": "T3_Q4",
+        "question": "How do you autoregulate training based on recovery status?",
+        "explanation": "Advanced practitioners adjust training in real-time.",
+        "options": [
+          {"text": "Always follow planned program regardless of recovery", "correct": false},
+          {"text": "Adjust volume/intensity based on sleep, HRV, performance, and readiness", "correct": true},
+          {"text": "Only adjust when extremely poor", "correct": false},
+          {"text": "Autoregulation only for powerlifting", "correct": false}
+        ],
+        "detailed_explanation": "Multiple markers (sleep, HRV, bar speed, readiness) guide real-time adjustments to prevent overreaching while maintaining consistency."
+      },
+      {
+        "id": "T3_Q5",
+        "question": "How do you periodize nutrition around training phases?",
+        "explanation": "Advanced nutrition periodization matches intake to demands.",
+        "options": [
+          {"text": "Maintain identical nutrition year-round", "correct": false},
+          {"text": "Adjust calories, macros, and timing based on training phase and volume", "correct": true},
+          {"text": "Only periodize during cutting", "correct": false},
+          {"text": "Meal timing has no impact", "correct": false}
+        ],
+        "detailed_explanation": "Sophisticated periodization adjusts calories, macros, and timing around training demands for optimal performance and recovery."
+      },
+      {
+        "id": "T3_Q6",
+        "question": "What is the role of myo-reps in advanced hypertrophy training?",
+        "explanation": "Myo-reps accumulate effective reps efficiently with minimal fatigue.",
+        "options": [
+          {"text": "Myo-reps are inferior to straight sets", "correct": false},
+          {"text": "Effective for time-efficient effective rep accumulation with lower systemic fatigue", "correct": true},
+          {"text": "Only for beginners", "correct": false},
+          {"text": "Must replace all straight sets", "correct": false}
+        ],
+        "detailed_explanation": "Myo-reps keep tension on target muscle near failure with brief rests, accumulating effective reps time-efficiently."
+      },
+      {
+        "id": "T3_Q7",
+        "question": "How should training be manipulated during overreaching blocks?",
+        "explanation": "Strategic overreaching can drive supercompensation.",
+        "options": [
+          {"text": "Never intentionally overreach", "correct": false},
+          {"text": "Temporarily increase volume 20-40% for 2-3 weeks, then deload", "correct": true},
+          {"text": "Overreach continuously", "correct": false},
+          {"text": "Overreaching only reduces progress", "correct": false}
+        ],
+        "detailed_explanation": "Planned overreaching with subsequent deload can drive supercompensation, but requires careful monitoring to avoid overtraining."
+      },
+      {
+        "id": "T3_Q8",
+        "question": "What is the relationship between specificity and variation in advanced training?",
+        "explanation": "Balancing movement patterns with exercise variety optimizes progress.",
+        "options": [
+          {"text": "Complete specificity with zero variation", "correct": false},
+          {"text": "Maintain core movement patterns while varying angles and implements", "correct": true},
+          {"text": "Complete variation with no consistent exercises", "correct": false},
+          {"text": "Specificity and variation are incompatible", "correct": false}
+        ],
+        "detailed_explanation": "Core movements provide trackable progression while strategic variation prevents accommodation and targets regions differently."
+      },
+      {
+        "id": "T3_Q9",
+        "question": "How do you implement daily undulating periodization (DUP) for hypertrophy?",
+        "explanation": "DUP varies intensity/volume within weekly microcycles.",
+        "options": [
+          {"text": "Train identically every session", "correct": false},
+          {"text": "Vary rep ranges and intensity across sessions within the week", "correct": true},
+          {"text": "Only do high reps every session", "correct": false},
+          {"text": "DUP only works for strength", "correct": false}
+        ],
+        "detailed_explanation": "DUP alternates heavy, moderate, and light sessions within weeks, providing varied stimuli and managing fatigue."
+      },
+      {
+        "id": "T3_Q10",
+        "question": "What is the concept of training to technical failure vs muscular failure?",
+        "explanation": "Different failure types have distinct applications.",
+        "options": [
+          {"text": "Always train to complete muscular failure", "correct": false},
+          {"text": "Technical failure (form breakdown) is often sufficient; muscular failure for isolations", "correct": true},
+          {"text": "Never approach any type of failure", "correct": false},
+          {"text": "Only train to concentric failure", "correct": false}
+        ],
+        "detailed_explanation": "Technical failure on compounds manages injury risk while muscular failure can be used more liberally on isolations."
+      },
+      {
+        "id": "T3_Q11",
+        "question": "How should advanced trainees manipulate training frequency during specialization?",
+        "explanation": "Specialization requires strategic frequency manipulation.",
+        "options": [
+          {"text": "Maintain equal frequency for all muscles", "correct": false},
+          {"text": "Increase priority muscle frequency to 4-6x while maintaining others at 2x", "correct": true},
+          {"text": "Only train specialization muscles", "correct": false},
+          {"text": "Decrease frequency during specialization", "correct": false}
+        ],
+        "detailed_explanation": "Specialization increases priority muscle frequency significantly while maintaining other muscles to prevent regression."
+      },
+      {
+        "id": "T3_Q12",
+        "question": "What is the role of blood flow restriction (BFR) in advanced hypertrophy?",
+        "explanation": "BFR can provide unique stimulus with lower mechanical loads.",
+        "options": [
+          {"text": "BFR is dangerous and useless", "correct": false},
+          {"text": "Can augment hypertrophy with light loads when used properly", "correct": true},
+          {"text": "BFR should replace all traditional training", "correct": false},
+          {"text": "Only works for injury rehabilitation", "correct": false}
+        ],
+        "detailed_explanation": "Properly applied BFR can produce hypertrophy with light loads, useful for injury management or adding volume with low joint stress."
+      },
+      {
+        "id": "T3_Q13",
+        "question": "How do you program around individual recovery landmarks and MEV?",
+        "explanation": "Understanding personal volume landmarks optimizes progression.",
+        "options": [
+          {"text": "Use generic volume recommendations for everyone", "correct": false},
+          {"text": "Identify individual MEV, MAV, and MRV through systematic tracking", "correct": true},
+          {"text": "Everyone has the same recovery capacity", "correct": false},
+          {"text": "Volume landmarks are meaningless", "correct": false}
+        ],
+        "detailed_explanation": "Systematic tracking identifies personal Minimum Effective, Maximum Adaptive, and Maximum Recoverable Volumes for optimal programming."
+      },
+      {
+        "id": "T3_Q14",
+        "question": "What is the relationship between intra-muscular coordination and hypertrophy?",
+        "explanation": "Neural adaptations interact with hypertrophic adaptations.",
+        "options": [
+          {"text": "Neural adaptations prevent hypertrophy", "correct": false},
+          {"text": "Improved coordination allows higher mechanical tension for enhanced hypertrophy", "correct": true},
+          {"text": "Hypertrophy and neural adaptations are unrelated", "correct": false},
+          {"text": "Only beginners have neural adaptations", "correct": false}
+        ],
+        "detailed_explanation": "Improved neural efficiency allows expression of greater force, increasing mechanical tension available for hypertrophic stimulus."
+      },
+      {
+        "id": "T3_Q15",
+        "question": "How should advanced trainees implement block periodization?",
+        "explanation": "Sequential emphasis blocks target different adaptations.",
+        "options": [
+          {"text": "Never use blocks, train everything maximally always", "correct": false},
+          {"text": "Sequence accumulation, intensification, and realization blocks", "correct": true},
+          {"text": "Only do single blocks", "correct": false},
+          {"text": "Block periodization only for powerlifters", "correct": false}
+        ],
+        "detailed_explanation": "Block periodization sequences volume accumulation, intensity increases, and performance peaks for superior long-term progress."
+      },
+      {
+        "id": "T3_Q16",
+        "question": "What is the concept of exercise rotation strategies?",
+        "explanation": "Strategic exercise rotation prevents accommodation and addresses weak points.",
+        "options": [
+          {"text": "Never rotate exercises", "correct": false},
+          {"text": "Rotate exercises every 4-8 weeks based on progress stagnation and weak point addressing", "correct": true},
+          {"text": "Change every single workout", "correct": false},
+          {"text": "Only do the same 3 exercises forever", "correct": false}
+        ],
+        "detailed_explanation": "Strategic rotation when progress stalls refreshes stimulus and allows targeting muscles from different angles."
+      },
+      {
+        "id": "T3_Q17",
+        "question": "How do you manipulate training variables during deload weeks?",
+        "explanation": "Deload implementation affects recovery quality.",
+        "options": [
+          {"text": "Reduce intensity only, maintain volume", "correct": false},
+          {"text": "Reduce volume by 40-60%, can maintain or slightly reduce intensity", "correct": true},
+          {"text": "Stop training completely", "correct": false},
+          {"text": "Increase everything during deload", "correct": false}
+        ],
+        "detailed_explanation": "Volume reduction with maintained intensity preserves motor patterns while allowing fatigue dissipation."
+      },
+      {
+        "id": "T3_Q18",
+        "question": "What is the role of advanced tempo manipulation?",
+        "explanation": "Strategic tempo variation provides unique stimuli.",
+        "options": [
+          {"text": "Tempo manipulation is useless", "correct": false},
+          {"text": "Slow eccentrics and pauses at stretch can enhance hypertrophy for specific applications", "correct": true},
+          {"text": "Always use 10-second eccentrics", "correct": false},
+          {"text": "Only explosive reps build muscle", "correct": false}
+        ],
+        "detailed_explanation": "Strategic eccentric emphasis and pauses increase time under tension and tension in stretched positions when applied appropriately."
+      },
+      {
+        "id": "T3_Q19",
+        "question": "How should advanced trainees approach inter-individual response variation?",
+        "explanation": "Responder status affects training and nutrition strategies.",
+        "options": [
+          {"text": "Everyone responds identically to training", "correct": false},
+          {"text": "Track individual responses and adjust strategies based on personal data", "correct": true},
+          {"text": "Non-responders cannot build muscle", "correct": false},
+          {"text": "Genetics determine everything, effort doesn't matter", "correct": false}
+        ],
+        "detailed_explanation": "Systematic tracking reveals individual response patterns, allowing personalization of volume, frequency, and exercise selection."
+      },
+      {
+        "id": "T3_Q20",
+        "question": "What is the relationship between systemic vs local fatigue in advanced programming?",
+        "explanation": "Different fatigue types require distinct management strategies.",
+        "options": [
+          {"text": "All fatigue is identical", "correct": false},
+          {"text": "Systemic fatigue affects recovery globally; local fatigue is muscle-specific", "correct": true},
+          {"text": "Only local fatigue matters", "correct": false},
+          {"text": "Fatigue is always bad", "correct": false}
+        ],
+        "detailed_explanation": "Heavy compounds create systemic fatigue affecting whole-body recovery; isolations create mostly local fatigue allowing strategic volume placement."
+      }
+    ]
+  }
+}
