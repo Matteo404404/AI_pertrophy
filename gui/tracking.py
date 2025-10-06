@@ -923,3 +923,172 @@ class TrackingWidget(QWidget):
     def refresh_data(self):
         """Refresh tracking data"""
         self.load_existing_data()
+    def on_date_selected(self, qdate):
+        """Handle calendar date selection"""
+        self.selected_date = date(qdate.year(), qdate.month(), qdate.day())
+        self.date_info_label.setText(f"Selected: {self.selected_date.strftime('%B %d, %Y')}")
+        self.load_existing_data()
+
+    def load_existing_data(self):
+        """Load existing tracking data for selected date and populate forms"""
+        current_user = self.user_manager.get_current_user()
+        if not current_user:
+            return
+
+        user_id = current_user['id']
+        date_str = self.selected_date.strftime('%Y-%m-%d')
+        
+        try:
+            self.clear_all_forms()
+            
+            cursor = self.db.conn.cursor()
+            diet_entry = cursor.execute(
+                "SELECT * FROM diet_entries WHERE user_id = ? AND entry_date = ?",
+                (user_id, date_str)
+            ).fetchone()
+            
+            if diet_entry:
+                self.populate_diet_form(dict(diet_entry))
+            
+            sleep_entry = cursor.execute(
+                "SELECT * FROM sleep_entries WHERE user_id = ? AND entry_date = ?", 
+                (user_id, date_str)
+            ).fetchone()
+            
+            if sleep_entry:
+                self.populate_sleep_form(dict(sleep_entry))
+                
+            body_entry = cursor.execute(
+                "SELECT * FROM body_measurements WHERE user_id = ? AND measurement_date = ?",
+                (user_id, date_str) 
+            ).fetchone()
+            
+            if body_entry:
+                self.populate_body_form(dict(body_entry))
+                
+        except Exception as e:
+            print(f"Error loading existing data: {e}")
+
+    def clear_all_forms(self):
+        """Clear all input forms"""
+        self.diet_calories.setValue(0)
+        self.diet_protein.setValue(0)
+        self.diet_carbs.setValue(0)
+        self.diet_fats.setValue(0)
+        self.diet_fiber.setValue(0)
+        self.diet_sugar.setValue(0)
+        self.diet_sodium.setValue(0)
+        self.diet_potassium.setValue(0)
+        self.diet_calcium.setValue(0)
+        self.diet_iron.setValue(0)
+        self.diet_vitamin_d.setValue(0)
+        self.diet_vitamin_c.setValue(0)
+        self.diet_b12.setValue(0)
+        self.diet_hydration.setValue(0)
+        self.diet_meals.setValue(0)
+        self.diet_protein_per_kg.setValue(0)
+        self.diet_pre_workout_carbs.setValue(0)
+        self.diet_post_workout_carbs.setValue(0)
+        self.diet_creatine.setValue(0)
+        self.diet_notes.clear()
+        
+        self.sleep_bedtime.setTime(self.sleep_bedtime.minimumTime())
+        self.sleep_waketime.setTime(self.sleep_waketime.minimumTime())
+        self.sleep_duration.setValue(0)
+        self.sleep_quality.setValue(1)
+        self.sleep_fall_asleep.setValue(0)
+        self.sleep_awakenings.setValue(0)
+        self.sleep_deep.setValue(0)
+        self.sleep_rem.setValue(0)
+        self.sleep_caffeine_cutoff.setTime(self.sleep_caffeine_cutoff.minimumTime())
+        self.sleep_screen_time.setValue(0)
+        self.sleep_temperature.setValue(0)
+        self.sleep_env_rating.setValue(0)
+        self.sleep_notes.clear()
+        
+        self.body_weight.setValue(0)
+        self.body_bf.setValue(0)
+        self.body_muscle.setValue(0)
+        self.body_waist.setValue(0)
+        self.body_chest.setValue(0)
+        self.body_arm.setValue(0)
+        self.body_forearm.setValue(0)
+        self.body_thigh.setValue(0)
+        self.body_calf.setValue(0)
+        self.body_neck.setValue(0)
+        self.body_notes.clear()
+
+    def populate_diet_form(self, data):
+        """Populate diet form with existing data"""
+        self.diet_calories.setValue(data.get('total_calories', 0))
+        self.diet_protein.setValue(data.get('protein_g', 0))
+        self.diet_carbs.setValue(data.get('carbs_g', 0))
+        self.diet_fats.setValue(data.get('fat_g', 0))
+        self.diet_fiber.setValue(data.get('fiber_g') or 0)
+        self.diet_sugar.setValue(data.get('sugar_g') or 0)
+        self.diet_sodium.setValue(data.get('sodium_mg') or 0)
+        self.diet_potassium.setValue(data.get('potassium_mg') or 0)
+        self.diet_calcium.setValue(data.get('calcium_mg') or 0)
+        self.diet_iron.setValue(data.get('iron_mg') or 0)
+        self.diet_vitamin_d.setValue(data.get('vitamin_d_ug') or 0)
+        self.diet_vitamin_c.setValue(data.get('vitamin_c_mg') or 0)
+        self.diet_b12.setValue(data.get('b12_ug') or 0)
+        self.diet_hydration.setValue(data.get('hydration_liters') or 0)
+        self.diet_meals.setValue(data.get('meals_count') or 0)
+        self.diet_protein_per_kg.setValue(data.get('protein_per_kg') or 0)
+        self.diet_pre_workout_carbs.setValue(data.get('pre_workout_carbs_g') or 0)
+        self.diet_post_workout_carbs.setValue(data.get('post_workout_carbs_g') or 0)
+        self.diet_creatine.setValue(data.get('creatine_g') or 0)
+        if data.get('notes'):
+            self.diet_notes.setPlainText(data['notes'])
+
+    def populate_sleep_form(self, data):
+        """Populate sleep form with existing data"""  
+        if data.get('bedtime'):
+            time_obj = QTime.fromString(data['bedtime'], "HH:mm")
+            self.sleep_bedtime.setTime(time_obj)
+        if data.get('wake_time'):
+            time_obj = QTime.fromString(data['wake_time'], "HH:mm") 
+            self.sleep_waketime.setTime(time_obj)
+            
+        self.sleep_duration.setValue(data.get('sleep_duration_hours', 0))
+        self.sleep_quality.setValue(data.get('sleep_quality', 1))
+        self.sleep_fall_asleep.setValue(data.get('time_to_fall_asleep_minutes') or 0)
+        self.sleep_awakenings.setValue(data.get('awakenings_count') or 0)
+        self.sleep_deep.setValue(data.get('deep_sleep_hours') or 0)
+        self.sleep_rem.setValue(data.get('rem_sleep_hours') or 0)
+        
+        if data.get('caffeine_cutoff_time'):
+            time_obj = QTime.fromString(data['caffeine_cutoff_time'], "HH:mm")
+            self.sleep_caffeine_cutoff.setTime(time_obj)
+            
+        self.sleep_screen_time.setValue(data.get('screen_time_before_bed_minutes') or 0)
+        self.sleep_temperature.setValue(data.get('room_temperature_celsius') or 0) 
+        self.sleep_env_rating.setValue(data.get('sleep_environment_rating') or 0)
+        
+        if data.get('notes'):
+            self.sleep_notes.setPlainText(data['notes'])
+
+    def populate_body_form(self, data):
+        """Populate body measurements form with existing data"""
+        self.body_weight.setValue(data.get('weight_kg') or 0)
+        self.body_bf.setValue(data.get('body_fat_percentage') or 0)
+        self.body_muscle.setValue(data.get('muscle_mass_kg') or 0)
+        self.body_waist.setValue(data.get('waist_cm') or 0)
+        self.body_chest.setValue(data.get('chest_cm') or 0)
+        self.body_arm.setValue(data.get('arm_cm') or 0)
+        self.body_forearm.setValue(data.get('forearm_cm') or 0)
+        self.body_thigh.setValue(data.get('thigh_cm') or 0)
+        self.body_calf.setValue(data.get('calf_cm') or 0)
+        self.body_neck.setValue(data.get('neck_cm') or 0)
+        
+        if data.get('notes'):
+            self.body_notes.setPlainText(data['notes'])
+    def jump_to_today(self):
+        """Jump calendar to today's date"""
+        today = date.today()
+        qdate = QDate(today.year, today.month, today.day)
+        self.calendar.setSelectedDate(qdate)
+        self.selected_date = today
+        self.load_existing_data()
+
