@@ -6,22 +6,14 @@ using multiple validated equations and adaptive metabolic adjustments based on l
 weight change data.
 
 References:
-- Mifflin et al. 1990: Most accurate BMR equation for general population (82% accuracy within 10%)
-- Frankenfield et al. 2005: Systematic review confirming Mifflin-St Jeor superiority
-- Katch-McArdle: Preferred when accurate body fat % available
-- Cunningham: Best for lean athletic populations (BF% < 15%M/25%F)
-- Adaptive Thermogenesis: 15-20% metabolic reduction in calorie restriction (Leibel et al. 1995)
+- Mifflin et al. 1990: Most accurate BMR equation for general population
+- Katch-McArdle: Preferred when accurate body fat % available (FFMI validation)  
+- Cunningham: Best for lean athletic populations
+- Adaptive Thermogenesis: Metabolic adaptation ~20-30% in calorie restriction (Leibel et al. 1995)
 - Activity multipliers: Validated ranges from DLW studies (Westerterp 2013)
-- CALERIE studies: Redman et al. 2018 - Metabolic adaptation 5-13% during CR
-
-Scientific Evidence:
-- Mifflin-St Jeor: 82% accuracy within 10% of measured RMR in non-obese adults
-- 70% accuracy in obese individuals (vs 60-65% for other equations)
-- Metabolic adaptation: 240-430 kcal/day reduction beyond body composition changes
-- TDEE components: BMR (60-70%), NEAT (15-30%), EAT (15-30%), TEF (8-15%)
+- Redman et al. 2009: TDEE reduction with caloric restriction (-431±51 kcal/d at 3 months)
 
 Author: Scientific Hypertrophy Trainer ML Team
-Version: 1.0 - Evidence-based implementation
 """
 
 from typing import Dict, List, Optional, Tuple, Union
@@ -31,15 +23,14 @@ import numpy as np
 from datetime import datetime, timedelta
 import logging
 
-# Import from ML configuration
-from ..base.config import ACTIVITY_MULTIPLIERS, NUTRITION_RANGES, NOISE_LEVELS
-from ..utils.logger import ModelLogger
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class ActivityLevel(Enum):
     """Activity level classifications with evidence-based multipliers."""
-    SEDENTARY = 1.2          # Desk job, no exercise
-    LIGHTLY_ACTIVE = 1.375   # Light exercise 1-3 days/week  
+    SEDENTARY = 1.2          # Desk job, no exercise  
+    LIGHTLY_ACTIVE = 1.375   # Light exercise 1-3 days/week
     MODERATELY_ACTIVE = 1.55 # Moderate exercise 3-5 days/week
     VERY_ACTIVE = 1.725      # Heavy exercise 6-7 days/week
     EXTREMELY_ACTIVE = 1.9   # Physical job + exercise, 2x/day training
@@ -47,8 +38,8 @@ class ActivityLevel(Enum):
 
 class EquationType(Enum):
     """BMR calculation methods with specific use cases."""
-    MIFFLIN_ST_JEOR = "mifflin"    # Most accurate for general population (82% within 10%)
-    KATCH_MCARDLE = "katch"        # Best when BF% known accurately (<5% error)
+    MIFFLIN_ST_JEOR = "mifflin"    # Most accurate for general population
+    KATCH_MCARDLE = "katch"        # Best when BF% known accurately  
     CUNNINGHAM = "cunningham"      # Optimal for lean athletes (BF% < 15%M/25%F)
 
 
@@ -64,652 +55,588 @@ class TDEEResult:
     equation_used: str           # BMR equation identifier
     adaptive_factor: float       # Metabolic adaptation adjustment (0.7-1.3)
     confidence_score: float      # Calculation reliability (0-1)
-    metabolic_adaptation_kcal: float  # Estimated metabolic adaptation (kcal/day)
-
-
-@dataclass
-class MetabolicData:
-    """Historical data for adaptive thermogenesis calculations."""
-    date: datetime
-    weight_kg: float
-    calories_intake: float
-    tdee_estimated: float
-    weight_change_rate: float    # kg/week
+    estimated_surplus: float     # Calories above maintenance
+    weight_change_trend: float   # Weekly weight change trend (kg/week)
 
 
 class TDEECalculator:
     """
     Advanced TDEE calculator with adaptive metabolic adjustments.
     
-    Based on CALERIE study findings (Redman et al. 2018):
-    - Metabolic adaptation: 5-13% reduction beyond body composition
-    - Occurs within 3 months of calorie restriction
-    - Persists during weight maintenance phase
-    - Larger in free-living vs laboratory conditions
-    
     Features:
-    - Multiple validated BMR equations with accuracy metrics
-    - Activity-specific multipliers from DLW validation studies
+    - Multiple validated BMR equations with automatic selection
+    - Activity-specific multipliers based on training volume
     - Adaptive thermogenesis modeling (Leibel et al. 1995)
     - Longitudinal weight trend analysis for metabolic adaptation
-    - Body composition considerations for accurate predictions
+    - Body composition considerations (FFMI validation)
+    - Training volume-based EAT estimation
+    
+    Scientific Backing:
+    - Mifflin-St Jeor: Most accurate BMR equation (±10% for 90% of population)
+    - Adaptive thermogenesis: 15-20% TDEE reduction in energy restriction
+    - NEAT variation: 100-800 kcal/day individual differences
+    - TEF: 8-15% of total caloric intake, higher with protein
     """
     
-    # Metabolic adaptation constants from CALERIE studies
+    # Metabolic adaptation constants (Leibel et al. 1995, Redman et al. 2009)
     ADAPTATION_RATES = {
-        'severe_deficit': -0.15,   # >25% restriction: 15% reduction (Redman et al.)
-        'moderate_deficit': -0.08, # 15-25% restriction: 8% reduction  
-        'mild_deficit': -0.03,     # 5-15% restriction: 3% reduction
-        'maintenance': 0.0,        # Energy balance: no adaptation
-        'mild_surplus': 0.03,      # 5-15% surplus: 3% increase
-        'moderate_surplus': 0.08,  # 15-25% surplus: 8% increase (Johannsen et al.)
-        'severe_surplus': 0.12     # >25% surplus: 12% increase
+        'severe_deficit': -0.20,   # 20% reduction in severe restriction (>25% deficit)
+        'moderate_deficit': -0.15, # 15% reduction in moderate restriction (15-25% deficit)
+        'mild_deficit': -0.08,     # 8% reduction in mild restriction (<15% deficit)
+        'maintenance': 0.02,       # 2% natural variation
+        'mild_surplus': 0.05,      # 5% increase in mild surplus
+        'surplus': 0.08,           # 8% increase in overfeeding
     }
     
     # TEF percentages by macronutrient (Westerterp 2004)
     TEF_MACROS = {
         'protein': 0.25,       # 20-30% thermic effect
         'carbs': 0.08,         # 5-10% thermic effect  
-        'fats': 0.03          # 0-5% thermic effect
+        'fats': 0.03,          # 0-5% thermic effect
+        'mixed': 0.10          # Typical mixed meal
     }
     
-    # BMR equation accuracy rates (Frankenfield et al. 2005)
-    EQUATION_ACCURACY = {
-        'mifflin': {'non_obese': 0.82, 'obese': 0.70, 'athletes': 0.75},
-        'katch': {'non_obese': 0.78, 'obese': 0.72, 'athletes': 0.85},
-        'cunningham': {'non_obese': 0.75, 'obese': 0.65, 'athletes': 0.88}
+    # Training volume to EAT conversion (kcal per set, based on exercise physiology)
+    EAT_PER_SET = {
+        'compound': 12,        # Squat, deadlift, bench press
+        'isolation': 8,        # Bicep curls, leg extensions
+        'cardio_moderate': 300, # 30min moderate cardio
+        'cardio_high': 450     # 30min high intensity
     }
     
     def __init__(self):
         """Initialize TDEE calculator with physiological constants."""
-        self.metabolic_history: List[MetabolicData] = []
-        self.logger = logging.getLogger(__name__)
+        self.weight_history: List[Tuple[datetime, float]] = []
+        self.calorie_history: List[Tuple[datetime, float]] = []
+        self.training_history: List[Tuple[datetime, Dict]] = []
         
-        # Adaptive thermogenesis tracking
-        self.baseline_tdee = None
-        self.adaptation_onset_date = None
-        self.current_adaptation_rate = 0.0
-        
-
     def calculate_bmr(self, 
-                     age: int, 
                      weight_kg: float, 
                      height_cm: float, 
-                     gender: str, 
-                     body_fat_percentage: Optional[float] = None,
-                     equation: EquationType = EquationType.MIFFLIN_ST_JEOR) -> Dict:
+                     age_years: int,
+                     sex: str,
+                     body_fat_percent: Optional[float] = None,
+                     equation: EquationType = EquationType.MIFFLIN_ST_JEOR) -> Tuple[float, str]:
         """
-        Calculate Basal Metabolic Rate using validated equations.
+        Calculate Basal Metabolic Rate using multiple validated equations.
         
         Args:
-            age: Age in years
             weight_kg: Body weight in kilograms
             height_cm: Height in centimeters  
-            gender: 'male' or 'female'
-            body_fat_percentage: Optional body fat % (0-100)
-            equation: BMR calculation method
+            age_years: Age in years
+            sex: 'male' or 'female'
+            body_fat_percent: Body fat percentage (if available)
+            equation: BMR equation to use
             
         Returns:
-            Dictionary with BMR, equation used, and confidence metrics
+            Tuple of (BMR in kcal/day, equation_name)
             
-        References:
-            - Mifflin-St Jeor: 82% accuracy within 10% (Frankenfield 2005)
-            - Katch-McArdle: Best when BF% available (<5% error)
-            - Cunningham: Optimal for athletes (BF% < 15%M/25%F)
+        Scientific References:
+        - Mifflin-St Jeor: Most accurate for general population (Mifflin et al. 1990)
+        - Katch-McArdle: Best when accurate BF% available
+        - Cunningham: Optimal for lean athletes (BF% < 15%M/25%F)
         """
+        sex_lower = sex.lower()
         
-        # Calculate Fat-Free Mass if body fat available
-        ffm_kg = None
-        if body_fat_percentage is not None:
-            ffm_kg = weight_kg * (1 - body_fat_percentage / 100)
-        
-        # Select optimal equation based on available data
-        if equation == EquationType.MIFFLIN_ST_JEOR or ffm_kg is None:
-            # Mifflin-St Jeor: Most validated equation (Mifflin et al. 1990)
-            if gender.lower() == 'male':
-                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
-            else:
-                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
-            equation_used = 'mifflin_st_jeor'
+        # Auto-select best equation based on available data
+        if equation == EquationType.MIFFLIN_ST_JEOR or body_fat_percent is None:
+            # Mifflin-St Jeor equation (most accurate for general population)
+            if sex_lower == 'male':
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years + 5
+            else:  # female
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years - 161
+            equation_name = "Mifflin-St Jeor"
             
-        elif equation == EquationType.KATCH_MCARDLE and ffm_kg is not None:
-            # Katch-McArdle: Uses FFM for higher accuracy
-            bmr = 370 + (21.6 * ffm_kg)
-            equation_used = 'katch_mcardle'
+        elif equation == EquationType.KATCH_MCARDLE and body_fat_percent is not None:
+            # Katch-McArdle equation (uses lean body mass)
+            lean_mass_kg = weight_kg * (1 - body_fat_percent / 100)
+            bmr = 370 + (21.6 * lean_mass_kg)
+            equation_name = "Katch-McArdle"
             
-        elif equation == EquationType.CUNNINGHAM and ffm_kg is not None:
-            # Cunningham: Best for lean athletes
-            bmr = 500 + (22 * ffm_kg)
-            equation_used = 'cunningham'
+        elif equation == EquationType.CUNNINGHAM and body_fat_percent is not None:
+            # Cunningham equation (best for lean, trained individuals)
+            lean_mass_kg = weight_kg * (1 - body_fat_percent / 100)
+            bmr = 500 + (22 * lean_mass_kg)
+            equation_name = "Cunningham"
             
         else:
             # Fallback to Mifflin-St Jeor
-            if gender.lower() == 'male':
-                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
+            if sex_lower == 'male':
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years + 5
             else:
-                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
-            equation_used = 'mifflin_st_jeor_fallback'
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years - 161
+            equation_name = "Mifflin-St Jeor (fallback)"
+            
+        return bmr, equation_name
+    
+    def estimate_neat(self, 
+                     activity_level: ActivityLevel,
+                     occupation_type: str = "sedentary",
+                     daily_steps: Optional[int] = None) -> float:
+        """
+        Estimate Non-Exercise Activity Thermogenesis.
         
-        # Calculate confidence score based on equation accuracy
-        confidence = self._calculate_confidence_score(
-            equation_used, weight_kg, height_cm, body_fat_percentage, age
-        )
+        NEAT accounts for 15-30% of total daily energy expenditure in healthy individuals
+        and shows the highest inter-individual variability (100-800 kcal/day).
         
-        return {
-            'bmr': round(bmr, 1),
-            'equation_used': equation_used,
-            'confidence_score': confidence,
-            'ffm_kg': ffm_kg
+        Args:
+            activity_level: General activity classification
+            occupation_type: "sedentary", "standing", "physical"
+            daily_steps: Average daily step count if available
+            
+        Returns:
+            NEAT in kcal/day
+            
+        References:
+        - Levine 2004: NEAT variation 100-800 kcal/day
+        - Westerterp 2013: Activity multipliers from DLW studies
+        """
+        # Base NEAT estimate from activity multiplier
+        base_multiplier = activity_level.value
+        neat_factor = base_multiplier - 1.0  # Remove BMR component
+        
+        # Adjust for occupation
+        occupation_multipliers = {
+            "sedentary": 1.0,
+            "standing": 1.2,
+            "physical": 1.5,
+            "manual_labor": 1.8
         }
+        
+        occupation_mult = occupation_multipliers.get(occupation_type, 1.0)
+        neat_factor *= occupation_mult
+        
+        # Adjust for step count if available
+        if daily_steps is not None:
+            # Rough conversion: 2000 steps = ~100 kcal for average person
+            step_kcal = max(0, (daily_steps - 2000) * 0.05)
+            neat_factor += step_kcal / 2000  # Normalize to multiplier
+        
+        # Convert to absolute value (will be multiplied by BMR later)
+        return neat_factor
     
-
-    def _calculate_confidence_score(self, 
-                                  equation: str, 
-                                  weight_kg: float, 
-                                  height_cm: float,
-                                  body_fat_percentage: Optional[float],
-                                  age: int) -> float:
+    def estimate_eat(self, 
+                    training_sessions_per_week: float,
+                    average_session_duration_min: float = 60,
+                    training_intensity: str = "moderate",
+                    cardio_minutes_per_week: float = 0) -> float:
         """
-        Calculate prediction confidence based on equation accuracy and user characteristics.
-        
-        Based on Frankenfield et al. 2005 validation data:
-        - Mifflin-St Jeor: 82% within 10% (non-obese), 70% (obese)
-        - Lower confidence for elderly (>65) due to limited validation
-        - Higher confidence when body composition known
-        """
-        
-        # Base accuracy from literature
-        base_equation = equation.split('_')[0] if '_' in equation else equation
-        
-        # Determine population category
-        bmi = weight_kg / ((height_cm / 100) ** 2)
-        if bmi < 30:
-            population = 'non_obese' 
-        else:
-            population = 'obese'
-            
-        # Check if likely athlete (low BF% if available)
-        if (body_fat_percentage is not None and 
-            ((body_fat_percentage < 15 and 'male' in equation) or 
-             (body_fat_percentage < 25 and 'female' in equation))):
-            population = 'athletes'
-        
-        # Get base accuracy
-        if base_equation in self.EQUATION_ACCURACY:
-            base_confidence = self.EQUATION_ACCURACY[base_equation].get(population, 0.75)
-        else:
-            base_confidence = 0.75
-        
-        # Adjust for age (limited elderly validation)
-        if age > 65:
-            base_confidence *= 0.9
-        elif age < 18:
-            base_confidence *= 0.85
-            
-        # Bonus for body composition data
-        if body_fat_percentage is not None and 'katch' in equation:
-            base_confidence *= 1.1
-            
-        return min(base_confidence, 1.0)
-    
-
-    def calculate_tdee(self, 
-                      age: int, 
-                      weight_kg: float, 
-                      height_cm: float, 
-                      gender: str,
-                      activity_level: ActivityLevel,
-                      body_fat_percentage: Optional[float] = None,
-                      training_frequency: int = 0,
-                      cardio_minutes_weekly: int = 0,
-                      occupation_multiplier: float = 1.0,
-                      apply_metabolic_adaptation: bool = True) -> TDEEResult:
-        """
-        Calculate Total Daily Energy Expenditure with comprehensive adjustments.
+        Estimate Exercise Activity Thermogenesis.
         
         Args:
-            age: Age in years
-            weight_kg: Body weight in kg
-            height_cm: Height in cm
-            gender: 'male' or 'female'
-            activity_level: ActivityLevel enum
-            body_fat_percentage: Optional BF% (0-100)
-            training_frequency: Resistance training sessions per week
-            cardio_minutes_weekly: Cardio training minutes per week
-            occupation_multiplier: Job activity adjustment (0.8-1.3)
-            apply_metabolic_adaptation: Apply adaptive thermogenesis
+            training_sessions_per_week: Resistance training frequency
+            average_session_duration_min: Session duration
+            training_intensity: "low", "moderate", "high"
+            cardio_minutes_per_week: Weekly cardio volume
             
         Returns:
-            TDEEResult with complete breakdown and confidence metrics
+            EAT in kcal/day (averaged)
         """
+        # Resistance training EAT
+        intensity_multipliers = {
+            "low": 0.8,      # RPE 5-6, long rest periods
+            "moderate": 1.0,  # RPE 7-8, moderate rest
+            "high": 1.3      # RPE 9+, short rest, high volume
+        }
         
-        with ModelLogger("TDEE Calculation"):
-            # Calculate BMR using optimal equation
-            bmr_result = self.calculate_bmr(
-                age, weight_kg, height_cm, gender, body_fat_percentage
-            )
-            bmr = bmr_result['bmr']
-            
-            # Calculate activity multiplier with training adjustments
-            base_multiplier = activity_level.value
-            
-            # Adjust for resistance training frequency (Schoenfeld et al.)
-            training_adjustment = min(training_frequency * 0.05, 0.2)  # Max 20% increase
-            
-            # Adjust for cardio volume (Wilson et al. 2012)
-            cardio_adjustment = min(cardio_minutes_weekly / 300, 0.3)  # Max 30% increase
-            
-            # Occupation adjustment
-            total_multiplier = (base_multiplier + training_adjustment + cardio_adjustment) * occupation_multiplier
-            total_multiplier = max(1.2, min(total_multiplier, 2.0))  # Physiological bounds
-            
-            # Calculate TDEE components
-            tdee_baseline = bmr * total_multiplier
-            
-            # Break down components (approximations based on literature)
-            neat = bmr * 0.15  # ~15% of BMR (varies 15-30%)
-            eat = bmr * (training_adjustment + cardio_adjustment)  # Exercise component
-            tef = tdee_baseline * 0.10  # ~10% of total intake (8-15% range)
-            
-            # Apply metabolic adaptation if historical data available
-            metabolic_adaptation_kcal = 0.0
-            adaptive_factor = 1.0
-            
-            if apply_metabolic_adaptation and len(self.metabolic_history) > 14:  # 2+ weeks data
-                adaptation_result = self._calculate_metabolic_adaptation()
-                adaptive_factor = adaptation_result['factor']
-                metabolic_adaptation_kcal = adaptation_result['kcal_adjustment']
-            
-            # Final TDEE with adaptations
-            tdee_final = tdee_baseline * adaptive_factor
-            
-            return TDEEResult(
-                bmr=bmr,
-                neat=neat,
-                eat=eat,
-                tef=tef,
-                tdee=tdee_final,
-                activity_multiplier=total_multiplier,
-                equation_used=bmr_result['equation_used'],
-                adaptive_factor=adaptive_factor,
-                confidence_score=bmr_result['confidence_score'],
-                metabolic_adaptation_kcal=metabolic_adaptation_kcal
-            )
+        intensity_mult = intensity_multipliers.get(training_intensity, 1.0)
+        
+        # Estimate kcal per session (rough approximation)
+        kcal_per_session = (average_session_duration_min / 60) * 250 * intensity_mult
+        weekly_resistance_kcal = training_sessions_per_week * kcal_per_session
+        
+        # Cardio EAT
+        weekly_cardio_kcal = cardio_minutes_per_week * 8  # ~8 kcal/min moderate cardio
+        
+        # Daily average
+        total_weekly_eat = weekly_resistance_kcal + weekly_cardio_kcal
+        daily_eat = total_weekly_eat / 7
+        
+        return daily_eat
     
-
-    def add_metabolic_data_point(self, 
-                               date: datetime,
-                               weight_kg: float,
-                               calories_intake: float,
-                               tdee_estimated: float) -> None:
+    def calculate_tef(self, 
+                     total_calories: float,
+                     protein_percent: float = 15,
+                     carb_percent: float = 50,
+                     fat_percent: float = 35) -> float:
         """
-        Add metabolic data point for adaptive thermogenesis tracking.
+        Calculate Thermic Effect of Food based on macronutrient composition.
         
         Args:
-            date: Date of measurement
-            weight_kg: Body weight in kg
-            calories_intake: Calorie intake for the day
-            tdee_estimated: Estimated TDEE for the day
-        """
-        
-        # Calculate weight change rate if sufficient data
-        weight_change_rate = 0.0
-        if len(self.metabolic_history) >= 7:  # 1+ weeks of data
-            week_ago_weight = next(
-                (data.weight_kg for data in reversed(self.metabolic_history[-7:])
-                 if (date - data.date).days >= 6), weight_kg
-            )
-            weight_change_rate = (weight_kg - week_ago_weight) / 7  # kg per day -> kg per week
-            weight_change_rate *= 7
-        
-        # Add data point
-        data_point = MetabolicData(
-            date=date,
-            weight_kg=weight_kg,
-            calories_intake=calories_intake,
-            tdee_estimated=tdee_estimated,
-            weight_change_rate=weight_change_rate
-        )
-        
-        self.metabolic_history.append(data_point)
-        
-        # Keep rolling window (12 weeks max)
-        if len(self.metabolic_history) > 84:
-            self.metabolic_history = self.metabolic_history[-84:]
-        
-        # Set baseline TDEE if first measurement
-        if self.baseline_tdee is None:
-            self.baseline_tdee = tdee_estimated
-    
-
-    def _calculate_metabolic_adaptation(self) -> Dict:
-        """
-        Calculate metabolic adaptation based on weight change trends.
-        
-        Uses CALERIE study findings:
-        - 5-13% reduction in TDEE beyond body composition changes
-        - Adaptation occurs within 3 months of energy deficit
-        - Larger adaptation with greater calorie restriction
-        
+            total_calories: Total daily caloric intake
+            protein_percent: Percentage of calories from protein
+            carb_percent: Percentage of calories from carbohydrates  
+            fat_percent: Percentage of calories from fats
+            
         Returns:
-            Dictionary with adaptation factor and kcal adjustment
+            TEF in kcal/day
+            
+        References:
+        - Westerterp 2004: Macronutrient-specific TEF values
+        - Protein: 20-30% TEF, Carbs: 5-10%, Fats: 0-5%
         """
+        # Normalize percentages
+        total_percent = protein_percent + carb_percent + fat_percent
+        if total_percent != 100:
+            protein_percent = protein_percent / total_percent * 100
+            carb_percent = carb_percent / total_percent * 100
+            fat_percent = fat_percent / total_percent * 100
         
-        if len(self.metabolic_history) < 14:
-            return {'factor': 1.0, 'kcal_adjustment': 0.0}
+        # Calculate TEF for each macronutrient
+        protein_tef = (total_calories * protein_percent / 100) * self.TEF_MACROS['protein']
+        carb_tef = (total_calories * carb_percent / 100) * self.TEF_MACROS['carbs']
+        fat_tef = (total_calories * fat_percent / 100) * self.TEF_MACROS['fats']
         
-        # Analyze last 2 weeks of data
-        recent_data = self.metabolic_history[-14:]
+        total_tef = protein_tef + carb_tef + fat_tef
         
-        # Calculate average energy balance
-        avg_calories = np.mean([d.calories_intake for d in recent_data])
-        avg_tdee = np.mean([d.tdee_estimated for d in recent_data])
-        avg_balance = avg_calories - avg_tdee
+        return total_tef
+    
+    def calculate_adaptive_factor(self, 
+                                 current_weight: float,
+                                 baseline_weight: float,
+                                 average_calorie_intake: float,
+                                 estimated_maintenance: float,
+                                 weeks_in_phase: int) -> float:
+        """
+        Calculate metabolic adaptation factor based on weight change and energy balance.
         
-        # Calculate expected vs actual weight change
-        expected_weight_change = avg_balance * 7 / 7700  # kcal to kg per week (7700 kcal/kg fat)
-        actual_weight_change = np.mean([d.weight_change_rate for d in recent_data])
+        Based on Leibel et al. 1995 and Redman et al. 2009 research showing:
+        - 10% weight loss → 250-300 kcal/day TDEE reduction
+        - 20% weight loss → 400-500 kcal/day TDEE reduction
+        - Adaptation occurs within 3-6 weeks and persists long-term
         
-        # Determine adaptation magnitude based on energy balance
-        balance_percentage = avg_balance / avg_tdee
+        Args:
+            current_weight: Current body weight (kg)
+            baseline_weight: Starting/reference weight (kg)
+            average_calorie_intake: Recent average calorie intake
+            estimated_maintenance: Estimated maintenance calories
+            weeks_in_phase: Duration of current diet/surplus phase
+            
+        Returns:
+            Adaptive factor (0.8-1.2, where 1.0 = no adaptation)
+        """
+        # Calculate weight change percentage
+        weight_change_percent = (current_weight - baseline_weight) / baseline_weight * 100
         
-        if balance_percentage <= -0.25:  # Severe deficit (>25%)
+        # Calculate energy balance
+        energy_balance = average_calorie_intake - estimated_maintenance
+        deficit_percent = abs(energy_balance) / estimated_maintenance * 100
+        
+        # Determine adaptation based on energy balance severity
+        if energy_balance < -500:  # Severe deficit
             base_adaptation = self.ADAPTATION_RATES['severe_deficit']
-        elif balance_percentage <= -0.15:  # Moderate deficit (15-25%) 
-            base_adaptation = self.ADAPTATION_RATES['moderate_deficit']
-        elif balance_percentage <= -0.05:  # Mild deficit (5-15%)
+        elif energy_balance < -300:  # Moderate deficit
+            base_adaptation = self.ADAPTATION_RATES['moderate_deficit'] 
+        elif energy_balance < -100:  # Mild deficit
             base_adaptation = self.ADAPTATION_RATES['mild_deficit']
-        elif balance_percentage >= 0.25:   # Severe surplus (>25%)
-            base_adaptation = self.ADAPTATION_RATES['severe_surplus']
-        elif balance_percentage >= 0.15:   # Moderate surplus (15-25%)
-            base_adaptation = self.ADAPTATION_RATES['moderate_surplus']
-        elif balance_percentage >= 0.05:   # Mild surplus (5-15%)
+        elif energy_balance > 300:   # Surplus
+            base_adaptation = self.ADAPTATION_RATES['surplus']
+        elif energy_balance > 100:   # Mild surplus
             base_adaptation = self.ADAPTATION_RATES['mild_surplus']
-        else:
+        else:                        # Maintenance
             base_adaptation = self.ADAPTATION_RATES['maintenance']
         
-        # Adjust based on duration (adaptation increases over time)
-        weeks_in_deficit = len([d for d in recent_data if d.calories_intake < d.tdee_estimated])
-        duration_multiplier = min(weeks_in_deficit / 4, 1.0)  # Max at 4 weeks
+        # Scale by weight change magnitude (more weight loss = more adaptation)
+        if weight_change_percent < 0:  # Weight loss
+            weight_factor = min(abs(weight_change_percent) / 10, 2.0)  # Cap at 20% loss effect
+        else:  # Weight gain
+            weight_factor = min(weight_change_percent / 15, 1.0)  # Less adaptation in surplus
         
-        # Final adaptation factor
-        adaptation_factor = 1.0 + (base_adaptation * duration_multiplier)
-        adaptation_factor = max(0.7, min(adaptation_factor, 1.3))  # Physiological bounds
+        # Time factor (adaptation develops over 3-6 weeks)
+        time_factor = min(weeks_in_phase / 4, 1.0)  # Full adaptation by week 4
         
-        # Calculate kcal adjustment
-        kcal_adjustment = avg_tdee * (adaptation_factor - 1.0)
+        # Calculate final adaptive factor
+        adaptation_magnitude = base_adaptation * weight_factor * time_factor
+        adaptive_factor = 1.0 + adaptation_magnitude
         
-        self.current_adaptation_rate = base_adaptation
+        # Constrain to physiologically realistic range
+        adaptive_factor = max(0.75, min(1.25, adaptive_factor))
         
-        self.logger.info(f"Metabolic adaptation: {base_adaptation:.1%}, "
-                        f"Factor: {adaptation_factor:.3f}, "
-                        f"Adjustment: {kcal_adjustment:.0f} kcal/day")
+        logger.info(f"Adaptive factor: {adaptive_factor:.3f} "
+                   f"(weight change: {weight_change_percent:.1f}%, "
+                   f"energy balance: {energy_balance:.0f} kcal)")
         
-        return {
-            'factor': adaptation_factor,
-            'kcal_adjustment': kcal_adjustment,
-            'weeks_in_balance': weeks_in_deficit,
-            'energy_balance_percentage': balance_percentage
-        }
+        return adaptive_factor
     
-
-    def estimate_calorie_needs(self, 
-                             current_weight: float,
-                             target_weight: float,
-                             timeframe_weeks: int,
-                             tdee: float) -> Dict:
+    def calculate_tdee(self,
+                      weight_kg: float,
+                      height_cm: float, 
+                      age_years: int,
+                      sex: str,
+                      activity_level: ActivityLevel,
+                      body_fat_percent: Optional[float] = None,
+                      training_sessions_per_week: float = 0,
+                      cardio_minutes_per_week: float = 0,
+                      daily_steps: Optional[int] = None,
+                      current_calories: Optional[float] = None,
+                      baseline_weight: Optional[float] = None,
+                      weeks_in_phase: int = 0,
+                      protein_percent: float = 20,
+                      equation: EquationType = EquationType.MIFFLIN_ST_JEOR) -> TDEEResult:
         """
-        Estimate calorie needs for weight change goals.
+        Calculate comprehensive TDEE with all components and adaptive adjustments.
         
         Args:
-            current_weight: Current weight in kg
-            target_weight: Target weight in kg
-            timeframe_weeks: Timeframe in weeks
-            tdee: Current TDEE estimate
+            weight_kg: Current body weight
+            height_cm: Height in centimeters
+            age_years: Age in years  
+            sex: 'male' or 'female'
+            activity_level: General activity classification
+            body_fat_percent: Body fat percentage (optional)
+            training_sessions_per_week: Resistance training frequency
+            cardio_minutes_per_week: Weekly cardio volume
+            daily_steps: Average daily steps (optional)
+            current_calories: Current calorie intake for adaptation calc
+            baseline_weight: Reference weight for adaptation calc
+            weeks_in_phase: Duration of current diet phase
+            protein_percent: Protein percentage of diet (affects TEF)
+            equation: BMR equation to use
             
         Returns:
-            Dictionary with calorie recommendations and timeline
+            TDEEResult with complete breakdown
         """
+        # Calculate BMR
+        bmr, equation_name = self.calculate_bmr(
+            weight_kg, height_cm, age_years, sex, body_fat_percent, equation
+        )
         
-        weight_change = target_weight - current_weight
-        weekly_change = weight_change / timeframe_weeks
+        # Calculate NEAT (as multiplier of BMR)
+        neat_multiplier = self.estimate_neat(activity_level, daily_steps=daily_steps)
+        neat = bmr * neat_multiplier
         
-        # Validate healthy rate (0.25-1.0 kg/week loss, 0.25-0.5 kg/week gain)
-        if weight_change < 0:  # Weight loss
-            max_healthy_rate = -1.0
-            min_healthy_rate = -0.25
-        else:  # Weight gain  
-            max_healthy_rate = 0.5
-            min_healthy_rate = 0.25
+        # Calculate EAT
+        eat = self.estimate_eat(
+            training_sessions_per_week, 
+            cardio_minutes_per_week=cardio_minutes_per_week
+        )
         
-        is_healthy_rate = min_healthy_rate <= abs(weekly_change) <= max_healthy_rate
+        # Calculate TEF (estimate based on typical intake or provided calories)
+        estimated_calories = current_calories if current_calories else bmr * activity_level.value
+        tef = self.calculate_tef(estimated_calories, protein_percent)
         
-        # Calculate calorie adjustment (3500 kcal ≈ 0.45 kg, 7700 kcal ≈ 1 kg fat)
-        kcal_per_kg = 7700  # More accurate for fat tissue
-        weekly_kcal_change = weekly_change * kcal_per_kg
-        daily_kcal_change = weekly_kcal_change / 7
+        # Calculate base TDEE
+        base_tdee = bmr + neat + eat + tef
         
-        target_calories = tdee + daily_kcal_change
+        # Apply metabolic adaptation if enough data available
+        adaptive_factor = 1.0
+        if current_calories and baseline_weight and weeks_in_phase > 0:
+            adaptive_factor = self.calculate_adaptive_factor(
+                weight_kg, baseline_weight, current_calories, base_tdee, weeks_in_phase
+            )
         
-        # Apply metabolic adaptation prediction for deficits
-        if daily_kcal_change < -200:  # Significant deficit
-            adaptation_estimate = 0.08  # Expect ~8% reduction
-            adjusted_deficit = daily_kcal_change / (1 - adaptation_estimate)
-            target_calories = tdee + adjusted_deficit
+        final_tdee = base_tdee * adaptive_factor
         
-        return {
-            'target_calories': round(target_calories),
-            'daily_change': round(daily_kcal_change),
-            'weekly_weight_change': round(weekly_change, 2),
-            'is_healthy_rate': is_healthy_rate,
-            'recommended_range': {
-                'min': round(target_calories - 100),
-                'max': round(target_calories + 100)
-            },
-            'timeline_weeks': timeframe_weeks,
-            'predicted_adaptation': adaptation_estimate if daily_kcal_change < -200 else 0.0
-        }
+        # Calculate confidence score based on data availability
+        confidence_score = self._calculate_confidence_score(
+            body_fat_percent, daily_steps, weeks_in_phase, baseline_weight
+        )
+        
+        # Estimate surplus/deficit
+        estimated_surplus = (current_calories - final_tdee) if current_calories else 0
+        
+        # Calculate weight change trend
+        weight_change_trend = self._calculate_weight_trend()
+        
+        return TDEEResult(
+            bmr=bmr,
+            neat=neat,
+            eat=eat,
+            tef=tef,
+            tdee=final_tdee,
+            activity_multiplier=activity_level.value,
+            equation_used=equation_name,
+            adaptive_factor=adaptive_factor,
+            confidence_score=confidence_score,
+            estimated_surplus=estimated_surplus,
+            weight_change_trend=weight_change_trend
+        )
     
-
-    def get_adaptation_status(self) -> Dict:
-        """
-        Get current metabolic adaptation status and recommendations.
+    def _calculate_confidence_score(self, 
+                                   body_fat_percent: Optional[float],
+                                   daily_steps: Optional[int],
+                                   weeks_in_phase: int,
+                                   baseline_weight: Optional[float]) -> float:
+        """Calculate confidence score for TDEE estimate (0-1)."""
+        score = 0.6  # Base score for basic calculation
         
-        Returns:
-            Dictionary with adaptation metrics and recommendations
-        """
+        # Bonus for body fat percentage (allows better BMR equation)
+        if body_fat_percent is not None:
+            score += 0.15
+            
+        # Bonus for step count data
+        if daily_steps is not None:
+            score += 0.1
+            
+        # Bonus for adaptation data
+        if baseline_weight is not None and weeks_in_phase > 2:
+            score += 0.15
+            
+        return min(1.0, score)
+    
+    def _calculate_weight_trend(self) -> float:
+        """Calculate recent weight change trend from history."""
+        if len(self.weight_history) < 2:
+            return 0.0
+            
+        # Use last 4 weeks of data if available
+        recent_weights = self.weight_history[-28:] if len(self.weight_history) >= 28 else self.weight_history
         
-        if len(self.metabolic_history) < 7:
-            return {
-                'status': 'insufficient_data',
-                'message': 'Need at least 1 week of data for adaptation analysis',
-                'recommendations': ['Track weight and calorie intake daily']
-            }
+        if len(recent_weights) < 2:
+            return 0.0
+            
+        # Simple linear trend
+        dates = [(w[0] - recent_weights[0][0]).days for w in recent_weights]
+        weights = [w[1] for w in recent_weights]
         
-        recent_data = self.metabolic_history[-7:]
-        avg_balance = np.mean([d.calories_intake - d.tdee_estimated for d in recent_data])
+        # Calculate slope (kg per day)
+        n = len(dates)
+        sum_x = sum(dates)
+        sum_y = sum(weights)
+        sum_xy = sum(x * y for x, y in zip(dates, weights))
+        sum_x2 = sum(x * x for x in dates)
         
-        recommendations = []
+        if n * sum_x2 - sum_x * sum_x == 0:
+            return 0.0
+            
+        slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
         
-        if self.current_adaptation_rate < -0.05:  # Significant adaptation
-            recommendations.extend([
-                'Consider a diet break (1-2 weeks at maintenance)',
-                'Increase daily steps for NEAT',
-                'Monitor sleep quality (affects hormones)',
-                'Consider refeeds every 5-7 days'
-            ])
-        elif avg_balance < -500:  # Large deficit
-            recommendations.extend([
-                'Current deficit may be too aggressive',
-                'Consider smaller deficit (300-500 kcal)',
-                'Monitor energy levels and performance'
-            ])
-        elif abs(avg_balance) < 100:  # Maintenance
-            recommendations.extend([
-                'Good energy balance for maintenance',
-                'Focus on body recomposition',
-                'Maintain current calorie intake'
-            ])
-        
+        # Convert to kg per week
+        return slope * 7
+    
+    def add_weight_entry(self, date: datetime, weight_kg: float):
+        """Add weight entry to history for trend analysis."""
+        self.weight_history.append((date, weight_kg))
+        # Keep only last 12 weeks
+        if len(self.weight_history) > 84:
+            self.weight_history = self.weight_history[-84:]
+    
+    def add_calorie_entry(self, date: datetime, calories: float):
+        """Add calorie entry to history.""" 
+        self.calorie_history.append((date, calories))
+        # Keep only last 12 weeks
+        if len(self.calorie_history) > 84:
+            self.calorie_history = self.calorie_history[-84:]
+    
+    def get_tdee_summary(self, tdee_result: TDEEResult) -> Dict[str, Union[float, str]]:
+        """Get formatted summary of TDEE calculation."""
         return {
-            'status': 'active' if abs(self.current_adaptation_rate) > 0.02 else 'minimal',
-            'adaptation_percentage': round(self.current_adaptation_rate * 100, 1),
-            'avg_energy_balance': round(avg_balance),
-            'recommendations': recommendations,
-            'data_quality': 'good' if len(self.metabolic_history) >= 14 else 'limited'
+            'total_tdee': round(tdee_result.tdee),
+            'bmr': round(tdee_result.bmr),
+            'neat': round(tdee_result.neat),
+            'eat': round(tdee_result.eat),
+            'tef': round(tdee_result.tef),
+            'equation': tdee_result.equation_used,
+            'adaptive_factor': round(tdee_result.adaptive_factor, 3),
+            'confidence': f"{tdee_result.confidence_score:.1%}",
+            'estimated_surplus': round(tdee_result.estimated_surplus),
+            'weight_trend_kg_per_week': round(tdee_result.weight_change_trend, 3)
         }
 
 
-    def simulate_metabolic_response(self, 
-                                  initial_weight: float,
-                                  calorie_intake: float,
-                                  initial_tdee: float,
-                                  duration_weeks: int) -> List[Dict]:
-        """
-        Simulate metabolic response over time for ML training data generation.
-        
-        Args:
-            initial_weight: Starting weight in kg
-            calorie_intake: Average daily calorie intake
-            initial_tdee: Initial TDEE estimate
-            duration_weeks: Simulation duration in weeks
-            
-        Returns:
-            List of daily metabolic data points for ML training
-        """
-        
-        simulation_data = []
-        current_weight = initial_weight
-        current_tdee = initial_tdee
-        adaptation_factor = 1.0
-        
-        for week in range(duration_weeks):
-            for day in range(7):
-                # Calculate energy balance
-                energy_balance = calorie_intake - current_tdee
-                
-                # Update weight (with realistic noise)
-                daily_weight_change = energy_balance / 7700  # kg per day
-                weight_noise = np.random.normal(0, NOISE_LEVELS['weight_std'])
-                current_weight += daily_weight_change + weight_noise
-                
-                # Calculate metabolic adaptation (progressive)
-                if energy_balance < -200:  # Deficit
-                    adaptation_rate = min(week * 0.01, 0.15)  # Progressive adaptation
-                    adaptation_factor = 1.0 - adaptation_rate
-                elif energy_balance > 300:  # Surplus
-                    adaptation_rate = min(week * 0.005, 0.08)  # Smaller surplus adaptation
-                    adaptation_factor = 1.0 + adaptation_rate
-                
-                # Update TDEE with adaptation
-                current_tdee = initial_tdee * adaptation_factor
-                
-                # Add realistic calorie intake noise
-                daily_calories = calorie_intake + np.random.normal(0, NOISE_LEVELS['calories_std'])
-                
-                simulation_data.append({
-                    'day': week * 7 + day + 1,
-                    'weight_kg': round(current_weight, 2),
-                    'calorie_intake': round(daily_calories),
-                    'tdee_estimated': round(current_tdee),
-                    'adaptation_factor': round(adaptation_factor, 4),
-                    'energy_balance': round(daily_calories - current_tdee)
-                })
-        
-        return simulation_data
-
-
-# Utility functions for quick calculations
-def quick_tdee(weight_kg: float, height_cm: float, age: int, gender: str, 
-               activity_level: str = 'moderately_active') -> float:
+# Convenience functions for quick calculations
+def calculate_maintenance_calories(weight_kg: float,
+                                 height_cm: float,
+                                 age_years: int,
+                                 sex: str,
+                                 activity_level: str = "moderately_active") -> float:
     """
-    Quick TDEE calculation using Mifflin-St Jeor and standard activity multipliers.
+    Quick maintenance calorie calculation.
     
     Args:
-        weight_kg: Weight in kg
-        height_cm: Height in cm  
-        age: Age in years
-        gender: 'male' or 'female'
+        weight_kg: Body weight in kg
+        height_cm: Height in cm
+        age_years: Age in years
+        sex: 'male' or 'female'
         activity_level: Activity level string
         
     Returns:
-        Estimated TDEE in kcal/day
+        Maintenance calories per day
     """
+    calculator = TDEECalculator()
     
-    # Calculate BMR (Mifflin-St Jeor)
-    if gender.lower() == 'male':
-        bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
-    else:
-        bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
-    
-    # Apply activity multiplier
-    multipliers = {
-        'sedentary': 1.2,
-        'lightly_active': 1.375,
-        'moderately_active': 1.55,
-        'very_active': 1.725,
-        'extremely_active': 1.9
+    # Map string to enum
+    activity_map = {
+        "sedentary": ActivityLevel.SEDENTARY,
+        "lightly_active": ActivityLevel.LIGHTLY_ACTIVE,
+        "moderately_active": ActivityLevel.MODERATELY_ACTIVE,
+        "very_active": ActivityLevel.VERY_ACTIVE,
+        "extremely_active": ActivityLevel.EXTREMELY_ACTIVE
     }
     
-    multiplier = multipliers.get(activity_level.lower(), 1.55)
-    return round(bmr * multiplier)
+    activity_enum = activity_map.get(activity_level, ActivityLevel.MODERATELY_ACTIVE)
+    
+    result = calculator.calculate_tdee(
+        weight_kg=weight_kg,
+        height_cm=height_cm,
+        age_years=age_years,
+        sex=sex,
+        activity_level=activity_enum
+    )
+    
+    return result.tdee
 
 
-def estimate_body_fat_navy(neck_cm: float, waist_cm: float, height_cm: float, 
-                          hip_cm: Optional[float] = None, gender: str = 'male') -> float:
+def estimate_surplus_for_goal(current_tdee: float, 
+                            goal_rate_kg_per_week: float,
+                            body_fat_percent: Optional[float] = None) -> float:
     """
-    Estimate body fat percentage using US Navy method.
+    Estimate caloric surplus needed for specific muscle gain rate.
+    
+    Based on research:
+    - 1 lb muscle ≈ 2500-3500 kcal (varies by individual)
+    - Higher body fat = more efficient muscle building initially
     
     Args:
-        neck_cm: Neck circumference in cm
-        waist_cm: Waist circumference in cm
-        height_cm: Height in cm
-        hip_cm: Hip circumference in cm (required for females)
-        gender: 'male' or 'female'
+        current_tdee: Current maintenance calories
+        goal_rate_kg_per_week: Target muscle gain rate
+        body_fat_percent: Current body fat percentage
         
     Returns:
-        Estimated body fat percentage (0-100)
+        Recommended daily caloric surplus
     """
+    # Convert kg/week to lb/week
+    goal_rate_lb_per_week = goal_rate_kg_per_week * 2.20462
     
-    import math
+    # Calories per pound of muscle (conservative estimate)
+    kcal_per_lb_muscle = 3000
     
-    if gender.lower() == 'male':
-        # Male formula
-        body_fat = (495 / (1.0324 - 0.19077 * math.log10(waist_cm - neck_cm) + 
-                          0.15456 * math.log10(height_cm))) - 450
-    else:
-        # Female formula (requires hip measurement)
-        if hip_cm is None:
-            raise ValueError("Hip measurement required for female body fat estimation")
-        
-        body_fat = (495 / (1.29579 - 0.35004 * math.log10(waist_cm + hip_cm - neck_cm) + 
-                          0.22100 * math.log10(height_cm))) - 450
+    # Calculate weekly surplus needed
+    weekly_surplus = goal_rate_lb_per_week * kcal_per_lb_muscle
+    daily_surplus = weekly_surplus / 7
     
-    return max(5, min(body_fat, 50))  # Physiological bounds
+    # Adjust for body fat (leaner individuals need larger surplus)
+    if body_fat_percent:
+        if body_fat_percent < 10:  # Very lean
+            daily_surplus *= 1.3
+        elif body_fat_percent < 15:  # Lean
+            daily_surplus *= 1.15
+        elif body_fat_percent > 25:  # Higher body fat
+            daily_surplus *= 0.85
+    
+    # Reasonable bounds
+    daily_surplus = max(100, min(800, daily_surplus))
+    
+    return daily_surplus
 
 
 if __name__ == "__main__":
-    """Example usage and testing."""
-    
-    # Initialize calculator
+    # Example usage
     calc = TDEECalculator()
     
     # Example calculation
     result = calc.calculate_tdee(
-        age=25,
         weight_kg=80,
         height_cm=180,
-        gender='male',
+        age_years=25,
+        sex="male",
         activity_level=ActivityLevel.MODERATELY_ACTIVE,
-        body_fat_percentage=15,
-        training_frequency=4,
-        cardio_minutes_weekly=150
+        training_sessions_per_week=4,
+        cardio_minutes_per_week=90,
+        protein_percent=25
     )
     
-    print(f"TDEE Results:")
-    print(f"BMR: {result.bmr:.0f} kcal/day")
-    print(f"TDEE: {result.tdee:.0f} kcal/day")
-    print(f"Activity Multiplier: {result.activity_multiplier:.2f}")
-    print(f"Equation: {result.equation_used}")
-    print(f"Confidence: {result.confidence_score:.1%}")
-    print(f"Adaptive Factor: {result.adaptive_factor:.3f}")
+    print("TDEE Calculation Results:")
+    print("=" * 40)
+    summary = calc.get_tdee_summary(result)
+    for key, value in summary.items():
+        print(f"{key.replace('_', ' ').title()}: {value}")
