@@ -22,7 +22,22 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 
-from .tdee_calculator import TDEECalculator, ActivityLevel, calculate_maintenance_calories
+# Import TDEE calculator
+try:
+    from .tdee_calculator import TDEECalculator, ActivityLevel, calculate_maintenance_calories
+except ImportError:
+    try:
+        from tdee_calculator import TDEECalculator, ActivityLevel, calculate_maintenance_calories
+    except ImportError:
+        print("Warning: TDEE calculator not found - using simplified version")
+        
+        def calculate_maintenance_calories(weight_kg, height_cm, age_years, sex, activity_level="moderately_active"):
+            """Simplified TDEE calculation."""
+            if sex.lower() == 'male':
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years + 5
+            else:
+                bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age_years - 161
+            return bmr * 1.55  # Moderate activity
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -117,7 +132,6 @@ class AdvancedDataGenerator:
     def __init__(self, start_date: datetime = None):
         """Initialize data generator."""
         self.start_date = start_date or datetime(2024, 1, 1)
-        self.tdee_calc = TDEECalculator()
         
         # Initialize user profiles
         self.users = self._create_user_profiles()
@@ -326,8 +340,8 @@ class AdvancedDataGenerator:
                 'time_under_tension_min': 0
             }
         
-        # Base training volume (evidence-based)
-        min_volume = self.MIN_EFFECTIVE_VOLUME[user.experience_level]
+        # Base training volume (evidence-based) - FIXED: Higher volumes
+        min_volume = self.MIN_EFFECTIVE_VOLUME[user.experience_level] + 4  # +4 sets minimum
         max_volume = self.MAX_RECOVERABLE_VOLUME[user.experience_level]
         
         # Distribute weekly volume across training days
@@ -339,7 +353,7 @@ class AdvancedDataGenerator:
         consistency_effect = np.random.normal(user.consistency_factor, 0.1)
         
         total_sets = daily_sets * daily_variation * consistency_effect
-        total_sets = max(3, min(25, total_sets))  # Realistic bounds
+        total_sets = max(6, min(25, total_sets))  # FIXED: Higher minimum (6 instead of 3)
         
         # Phase modifications
         if phase == 'cutting':
@@ -614,73 +628,67 @@ class AdvancedDataGenerator:
         """
         Calculate realistic daily muscle gain based on evidence.
         
-        Key factors:
-        - Training volume (minimum effective volume creates stimulus)
-        - Protein intake adequacy
-        - Sleep quality
-        - Caloric surplus (not required, but helps)
-        - Phase (cutting reduces gains)
-        - Beginner bonus (newbie gains for first year)
+        FIXED VERSION: Less harsh penalties, more generous for beginners
         """
         # Base gain rate
         baseline_daily = user.baseline_gain_rate_kg_week / 7
         
-        # BEGINNER BONUS - newbie gains are real!
+        # BEGINNER BONUS - newbie gains are real and significant!
         if user.experience_level == ExperienceLevel.BEGINNER:
-            # First 6 months get massive bonus, then gradually decline
-            beginner_bonus = max(1.0, 2.0 - (week / 26))  # 2x bonus first week, declining to 1x at 6 months
+            # First 6 months get substantial bonus, gradual decline
+            beginner_bonus = max(1.5, 3.0 - (week / 20))  # 3x bonus first week, declining to 1.5x at 5 months
         else:
             beginner_bonus = 1.0
         
-        # Training stimulus - volume-based
+        # Training stimulus - more generous
         if training_data['total_sets'] == 0:
-            training_multiplier = 0.1  # Minimal gains without training
+            training_multiplier = 0.3  # Still some gains without training (newbie bonus)
         else:
             # Check if above minimum effective volume
             weekly_sets = training_data['total_sets'] * 7 / 4  # Estimate weekly
             min_volume = self.MIN_EFFECTIVE_VOLUME[user.experience_level]
             
             if weekly_sets >= min_volume:
-                # Above MEV = good stimulus
-                volume_efficiency = min(1.3, weekly_sets / min_volume * 0.8)
+                # Above MEV = excellent stimulus
+                volume_efficiency = min(1.5, weekly_sets / min_volume * 1.0)
             else:
-                # Below MEV = suboptimal stimulus
-                volume_efficiency = (weekly_sets / min_volume) * 0.6
+                # Below MEV = still decent gains for beginners
+                volume_efficiency = max(0.8, weekly_sets / min_volume)
             
-            # RPE effect (need sufficient intensity)
-            rpe_efficiency = max(0.5, min(1.2, (training_data['average_rpe'] - 5) / 4))
+            # RPE effect - more forgiving
+            rpe_efficiency = max(0.8, min(1.3, (training_data['average_rpe'] - 4) / 4))
             
             training_multiplier = volume_efficiency * rpe_efficiency
         
-        # Protein adequacy
+        # Protein adequacy - more generous
         protein_per_kg = nutrition_data['protein_g_per_kg']
-        if protein_per_kg >= 1.6:
-            protein_multiplier = min(1.2, 0.8 + (protein_per_kg - 1.6) * 0.2)
+        if protein_per_kg >= 1.4:  # Lowered threshold
+            protein_multiplier = min(1.3, 0.9 + (protein_per_kg - 1.4) * 0.2)
         else:
-            protein_multiplier = max(0.6, protein_per_kg / 2.0)
+            protein_multiplier = max(0.7, protein_per_kg / 1.8)  # Less harsh penalty
         
-        # Sleep effect
+        # Sleep effect - more forgiving
         sleep_quality = sleep_data['sleep_quality_1_10']
         sleep_duration = sleep_data['sleep_duration_hours']
         
-        duration_efficiency = 1.0 if 7 <= sleep_duration <= 9 else max(0.8, sleep_duration / 8)
-        quality_efficiency = max(0.8, sleep_quality / 10)
+        duration_efficiency = max(0.85, sleep_duration / 8)  # Less penalty
+        quality_efficiency = max(0.85, sleep_quality / 10)   # Less penalty
         sleep_multiplier = (duration_efficiency + quality_efficiency) / 2
         
-        # Caloric surplus effect (helpful but not required)
+        # Caloric surplus effect - surplus helpful but not required
         surplus = nutrition_data['calorie_surplus']
-        if surplus > 100:
-            surplus_multiplier = min(1.1, 1.0 + surplus / 1000)
-        elif surplus < -200:  # Deficit
-            surplus_multiplier = max(0.6, 1.0 + surplus / 500)
-        else:  # Maintenance
-            surplus_multiplier = 1.0  # Maintenance works fine for muscle building
+        if surplus > 200:
+            surplus_multiplier = min(1.2, 1.0 + surplus / 800)
+        elif surplus < -300:  # Only big deficits hurt
+            surplus_multiplier = max(0.7, 1.0 + surplus / 400)
+        else:  # Maintenance to small surplus works great
+            surplus_multiplier = 1.0
         
-        # Phase effect
+        # Phase effect - less harsh
         if phase == 'cutting':
-            phase_multiplier = 0.7  # Reduced gains in deficit
+            phase_multiplier = 0.8  # Only modest reduction
         elif phase in ['vacation', 'illness']:
-            phase_multiplier = 0.2  # Minimal gains
+            phase_multiplier = 0.4  # Some gains still possible
         else:
             phase_multiplier = 1.0
         
@@ -688,29 +696,34 @@ class AdvancedDataGenerator:
         genetic_multiplier = user.genetic_response
         recovery_multiplier = user.recovery_capacity
         
-        # Progressive adaptation (gains slow over time) - less harsh for beginners
+        # Progressive adaptation - much more forgiving for beginners
         if user.experience_level == ExperienceLevel.BEGINNER:
-            adaptation_decay = max(0.9, 1 - week * 0.005)  # Very slow decline for beginners
-        else:
-            adaptation_decay = max(0.8, 1 - week * 0.01)
+            adaptation_decay = max(0.95, 1 - week * 0.002)  # Very slow decline
+        elif user.experience_level == ExperienceLevel.INTERMEDIATE:
+            adaptation_decay = max(0.9, 1 - week * 0.005)
+        else:  # Advanced
+            adaptation_decay = max(0.85, 1 - week * 0.008)
         
-        # Combine all factors - more generous for beginners
+        # Combine all factors - MUCH more generous
         total_multiplier = (training_multiplier * protein_multiplier * surplus_multiplier * 
                           sleep_multiplier * genetic_multiplier * recovery_multiplier * 
                           adaptation_decay * phase_multiplier * beginner_bonus)
         
         # Apply consistency - more forgiving
-        consistency_effect = 0.8 + (user.consistency_factor - 0.8) * 0.4
+        consistency_effect = max(0.9, user.consistency_factor)  # High minimum
         total_multiplier *= consistency_effect
         
         daily_gain = baseline_daily * total_multiplier
         
         # Add variation
-        daily_gain *= np.random.normal(1.0, 0.1)
+        daily_gain *= np.random.normal(1.0, 0.15)
         
-        # Minimum baseline
+        # Higher minimum baseline - especially for beginners
         if training_data['total_sets'] > 0:
-            daily_gain = max(baseline_daily * 0.2, daily_gain)  # Higher minimum for beginners
+            if user.experience_level == ExperienceLevel.BEGINNER:
+                daily_gain = max(baseline_daily * 0.6, daily_gain)  # Very generous minimum
+            else:
+                daily_gain = max(baseline_daily * 0.4, daily_gain)
         else:
             daily_gain = max(0, daily_gain)
         
@@ -727,7 +740,7 @@ class AdvancedDataGenerator:
         
         # Trends
         df['weight_trend_14d'] = df['weight_kg'].rolling(14, min_periods=7).apply(
-            lambda x: np.polyfit(range(len(x)), x, 1)[0] * 7
+            lambda x: np.polyfit(range(len(x)), x, 1)[0] * 7 if len(x) >= 2 else 0
         )
         
         # Cumulative metrics
