@@ -119,7 +119,7 @@ class EnhancedSyntheticDataGenerator:
                 continue
             
             # Select 3-5 exercises for this session
-            num_exercises = np.random.randint(3, 6)
+            num_exercises = np.random.randint(5, 12)
             session_exercises = np.random.choice(self.exercises, num_exercises, replace=False)
             
             for ex_idx, exercise in enumerate(session_exercises):

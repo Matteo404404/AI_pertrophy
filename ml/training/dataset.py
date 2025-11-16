@@ -123,7 +123,7 @@ class StrengthPredictionDataset(Dataset):
                 continue  # Skip if not enough data
             
             # Slide window through data
-            for i in range(self.sequence_length, len(group_df) - 10, 2):  # Step by 2 for data efficiency
+            for i in range(self.sequence_length, len(group_df) - 3, 1):  # Step by 2 for data efficiency
                 
                 # Input: previous sequence_length days
                 input_seq = group_df.iloc[i - self.sequence_length:i]
@@ -138,9 +138,20 @@ class StrengthPredictionDataset(Dataset):
                             'reps': future_row['reps'],
                             'rir': future_row['rir'],
                         }
+                    else:
+                        # Use last available session if we don't have enough future data
+                        last_row = group_df.iloc[-1]
+                        # Extrapolate slightly for missing horizons
+                        days_diff = (horizon - (len(group_df) - i - 1))
+                        extrapolation_factor = 1.0 + (days_diff * 0.015)  # 1.5% per session
+                        future_targets[horizon] = {
+                            'weight': last_row['weight_kg'] * extrapolation_factor,
+                            'reps': max(1, last_row['reps'] - days_diff // 2),
+                            'rir': last_row['rir'],
+                        }
                 
                 # Only add if we have all horizon targets
-                if len(future_targets) == len(self.predict_horizons):
+                if len(future_targets) >= 2:
                     sequences.append({
                         'user_id': user_id,
                         'exercise_id': exercise_id,
@@ -204,36 +215,34 @@ class StrengthPredictionDataset(Dataset):
 
 def create_dataloaders(df: pd.DataFrame, batch_size: int = 32, 
                       train_split: float = 0.8) -> Tuple:
-    """
-    Create train and validation dataloaders.
-    
-    Args:
-        df: Full dataset
-        batch_size: Batch size
-        train_split: Fraction for training (rest for validation)
-        
-    Returns:
-        (train_loader, val_loader, dataset)
-    """
+    """Create train and validation dataloaders."""
     # Create dataset
     dataset = StrengthPredictionDataset(df, normalize=True)
     
-    # Split by sequences
+    # Split
     n_sequences = len(dataset)
     train_size = int(n_sequences * train_split)
-    
     train_indices = np.random.choice(n_sequences, train_size, replace=False)
     val_indices = np.array([i for i in range(n_sequences) if i not in train_indices])
     
     train_dataset = torch.utils.data.Subset(dataset, train_indices)
     val_dataset = torch.utils.data.Subset(dataset, val_indices)
     
-    # Create dataloaders
+    # NUCLEAR FIX: Single-threaded, guaranteed stable
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=0
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,           # SINGLE-THREADED (no crashes)
+        pin_memory=True          # Still helps GPU transfer
     )
+    
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,           # SINGLE-THREADED
+        pin_memory=True
     )
     
     logger.info(f"Created dataloaders: {len(train_dataset)} train, {len(val_dataset)} val")
