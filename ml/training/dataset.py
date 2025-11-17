@@ -215,34 +215,38 @@ class StrengthPredictionDataset(Dataset):
 
 def create_dataloaders(df: pd.DataFrame, batch_size: int = 32, 
                       train_split: float = 0.8) -> Tuple:
-    """Create train and validation dataloaders."""
     # Create dataset
     dataset = StrengthPredictionDataset(df, normalize=True)
     
-    # Split
+    # Split by sequences
     n_sequences = len(dataset)
     train_size = int(n_sequences * train_split)
+    
     train_indices = np.random.choice(n_sequences, train_size, replace=False)
     val_indices = np.array([i for i in range(n_sequences) if i not in train_indices])
     
     train_dataset = torch.utils.data.Subset(dataset, train_indices)
     val_dataset = torch.utils.data.Subset(dataset, val_indices)
     
-    # NUCLEAR FIX: Single-threaded, guaranteed stable
+    # Create dataloaders
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=0,           # SINGLE-THREADED (no crashes)
-        pin_memory=True          # Still helps GPU transfer
+        num_workers=2,
+        pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=4
     )
     
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,           # SINGLE-THREADED
-        pin_memory=True
+        num_workers=1,
+        pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=4
     )
     
     logger.info(f"Created dataloaders: {len(train_dataset)} train, {len(val_dataset)} val")
