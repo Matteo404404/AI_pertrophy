@@ -215,40 +215,52 @@ class StrengthPredictionDataset(Dataset):
 
 def create_dataloaders(df: pd.DataFrame, batch_size: int = 32, 
                       train_split: float = 0.8) -> Tuple:
-    # Create dataset
-    dataset = StrengthPredictionDataset(df, normalize=True)
+    """
+    Create train and validation DataLoaders.
     
-    # Split by sequences
-    n_sequences = len(dataset)
-    train_size = int(n_sequences * train_split)
+    Args:
+        df: Training DataFrame
+        batch_size: Batch size for training
+        train_split: Fraction of data for training (0.8 = 80% train, 20% val)
     
-    train_indices = np.random.choice(n_sequences, train_size, replace=False)
-    val_indices = np.array([i for i in range(n_sequences) if i not in train_indices])
+    Returns:
+        (train_loader, val_loader, dataset)
+    """
+    # Create full dataset
+    full_dataset = StrengthPredictionDataset(df, sequence_length=14, normalize=True)
     
-    train_dataset = torch.utils.data.Subset(dataset, train_indices)
-    val_dataset = torch.utils.data.Subset(dataset, val_indices)
+    # Split into train/val
+    dataset_size = len(full_dataset)
+    train_size = int(train_split * dataset_size)
+    val_size = dataset_size - train_size
     
-    # Create dataloaders
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        full_dataset, 
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)
+    )
+    
+    logger.info(f"Created dataloaders: {train_size} train, {val_size} val")
+    
+    # Create dataloaders with multi-worker configuration
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,
+        num_workers=2,              # 2 workers for stability
         pin_memory=True,
-        persistent_workers=True,
-        prefetch_factor=4
+        persistent_workers=True,    # Keep workers alive between epochs
+        prefetch_factor=4           # Prefetch 4 batches per worker
     )
     
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=1,
+        num_workers=1,              # 1 worker for validation
         pin_memory=True,
         persistent_workers=True,
         prefetch_factor=4
     )
     
-    logger.info(f"Created dataloaders: {len(train_dataset)} train, {len(val_dataset)} val")
-    
-    return train_loader, val_loader, dataset
+    return train_loader, val_loader, full_dataset
