@@ -247,10 +247,11 @@ def create_dataloaders(df: pd.DataFrame, batch_size: int = 32,
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,              # 2 workers for stability
+        num_workers=3,                      # 3 workers with spawn
         pin_memory=True,
-        persistent_workers=True,    # Keep workers alive between epochs
-        prefetch_factor=4           # Prefetch 4 batches per worker
+        persistent_workers=True,
+        prefetch_factor=2,                  # Lower prefetch with spawn
+        multiprocessing_context=ctx         # CRITICAL: spawn context
     )
     
     val_loader = torch.utils.data.DataLoader(
