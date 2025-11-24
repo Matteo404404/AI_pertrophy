@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 from typing import Tuple, List, Dict, Optional
 import logging
+import torch.multiprocessing as mp
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -241,6 +243,8 @@ def create_dataloaders(df: pd.DataFrame, batch_size: int = 32,
     )
     
     logger.info(f"Created dataloaders: {train_size} train, {val_size} val")
+
+    ctx = mp.get_context('spawn')
     
     # Create dataloaders with multi-worker configuration
     train_loader = torch.utils.data.DataLoader(
