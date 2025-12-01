@@ -1,5 +1,5 @@
 # 🏋️ Scientific Hypertrophy Trainer
-
+**ALL RIGHTS RESERVED**
 > **Evidence-based muscle building through progressive knowledge assessment and intelligent data analytics**
 
 An advanced desktop application that transforms hypertrophy training from guesswork into precision science. Built with Python, PyQt6, and machine learning, this system guides lifters from fundamentals to expert-level programming through a comprehensive knowledge tier system, granular tracking, and (coming soon) adaptive ML recommendations.
