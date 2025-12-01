@@ -1,0 +1,270 @@
+INFO:__main__:================================================================================
+INFO:__main__:STRENGTH PREDICTION MODEL - TRAINING PIPELINE
+INFO:__main__:================================================================================
+INFO:__main__:
+[STEP 1] Generating synthetic training data...
+INFO:__main__:  • Users: 10000
+INFO:__main__:  • History: 90 days per user
+INFO:__main__:  • Features: diet, sleep, supplements, recovery, assessment
+INFO:ml.data.enhanced_synthetic_generator:Initialized generator for 10000 users, 90 days history
+INFO:ml.data.enhanced_synthetic_generator:Generating user 1000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 2000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 3000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 4000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 5000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 6000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 7000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 8000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 9000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 10000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generated 3597969 records for 10000 users
+INFO:ml.data.enhanced_synthetic_generator:Saved dataset to ml/data/training_data.csv
+INFO:__main__:  ✅ Generated 3597969 records
+INFO:__main__:     • Unique users: 10000
+INFO:__main__:     • Unique exercises: 13
+INFO:__main__:
+[STEP 2] Creating PyTorch dataloaders...
+INFO:ml.training.dataset:Built 1293748 training sequences
+INFO:ml.training.dataset:Created dataset with 1293748 sequences
+INFO:ml.training.dataset:Created dataloaders: 1034998 train, 258750 val
+INFO:__main__:  ✅ Created dataloaders
+INFO:__main__:     • Input features: 35
+INFO:__main__:     • Batch size: 128
+INFO:__main__:     • Train batches: 8086
+INFO:__main__:     • Val batches: 2022
+INFO:__main__:
+[STEP 3] Creating PyTorch model...
+INFO:__main__:  • Device: cuda
+INFO:ml.models.pytorch_strength_predictor:Created StrengthPredictorLSTM with 361956 parameters
+INFO:__main__:  ✅ Model created
+INFO:__main__:     • Architecture: LSTM + Attention + Bayesian
+INFO:__main__:     • Parameters: 361,956
+INFO:__main__:
+[STEP 4] Setting up trainer...
+INFO:ml.training.trainer:Trainer initialized on device: cuda
+INFO:ml.training.trainer:Model parameters: 361,956
+INFO:ml.training.trainer:Optimizer setup: AdamW(lr=0.001, weight_decay=1e-05)
+INFO:__main__:  ✅ Trainer ready
+INFO:__main__:     • Optimizer: AdamW(lr=0.001)
+INFO:__main__:     • Scheduler: ReduceLROnPlateau
+INFO:__main__:     • Early stopping: 15 epochs patience
+INFO:__main__:
+[STEP 5] Training model...
+INFO:__main__:  • Max epochs: 100
+INFO:__main__:  • Target metric: Validation Weight MAE
+INFO:__main__:
+INFO:ml.training.trainer:Starting training for 100 epochs...
+INFO:ml.training.trainer:Device: cuda
+INFO:ml.training.trainer:Train batches: 8086, Val batches: 2022
+INFO:ml.training.trainer:
+--- Epoch 1/100 ---
+INFO:ml.training.trainer:  Batch 50: Loss=0.6968, Weight MAE=0.24kg
+INFO:ml.training.trainer:  Batch 100: Loss=0.6574, Weight MAE=0.20kg
+INFO:ml.training.trainer:  Batch 150: Loss=0.6498, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 200: Loss=0.6812, Weight MAE=0.20kg
+INFO:ml.training.trainer:  Batch 250: Loss=0.6849, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 300: Loss=0.6668, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 350: Loss=0.6583, Weight MAE=0.19kg
+INFO:ml.training.trainer:  Batch 400: Loss=0.6630, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 450: Loss=0.6968, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 500: Loss=0.6674, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 550: Loss=0.6550, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 600: Loss=0.6291, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 650: Loss=0.6600, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 700: Loss=0.6711, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 750: Loss=0.6493, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 800: Loss=0.6536, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 850: Loss=0.6493, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 900: Loss=0.6796, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 950: Loss=0.6440, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 1000: Loss=0.6546, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 1050: Loss=0.6317, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1100: Loss=0.6750, Weight MAE=0.19kg
+INFO:ml.training.trainer:  Batch 1150: Loss=0.6458, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1200: Loss=0.6552, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1250: Loss=0.7026, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1300: Loss=0.6224, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1350: Loss=0.6608, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1400: Loss=0.6376, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1450: Loss=0.6553, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1500: Loss=0.6724, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1550: Loss=0.6776, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1600: Loss=0.6508, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1650: Loss=0.6676, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1700: Loss=0.6610, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1750: Loss=0.6660, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1800: Loss=0.6547, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1850: Loss=0.6447, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1900: Loss=0.6693, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1950: Loss=0.6583, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2000: Loss=0.6831, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2050: Loss=0.6631, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2100: Loss=0.6619, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2150: Loss=0.6604, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2200: Loss=0.6633, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2250: Loss=0.6506, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2300: Loss=0.6404, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2350: Loss=0.6547, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2400: Loss=0.6538, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2450: Loss=0.6466, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2500: Loss=0.6265, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2550: Loss=0.6632, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2600: Loss=0.6812, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2650: Loss=0.6698, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2700: Loss=0.6863, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2750: Loss=0.6475, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 2800: Loss=0.6411, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2850: Loss=0.6535, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 2900: Loss=0.6480, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2950: Loss=0.6310, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3000: Loss=0.6947, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3050: Loss=0.6606, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3100: Loss=0.6511, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 3150: Loss=0.6622, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 3200: Loss=0.6606, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3250: Loss=0.6383, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3300: Loss=0.6433, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3350: Loss=0.6700, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3400: Loss=0.6669, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 3450: Loss=0.6816, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3500: Loss=0.6487, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 3550: Loss=0.6624, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 3600: Loss=0.6493, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3650: Loss=0.6642, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3700: Loss=0.6442, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3750: Loss=0.6346, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3800: Loss=0.6277, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 3850: Loss=0.6251, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 3900: Loss=0.6956, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 3950: Loss=0.6549, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4000: Loss=0.6463, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 4050: Loss=0.6562, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4100: Loss=0.6634, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4150: Loss=0.6678, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 4200: Loss=0.6496, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 4250: Loss=0.6582, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4300: Loss=0.6538, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4350: Loss=0.6756, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 4400: Loss=0.6661, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4450: Loss=0.6478, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4500: Loss=0.6608, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4550: Loss=0.6447, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4600: Loss=0.6960, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 4650: Loss=0.6588, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4700: Loss=0.6651, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 4750: Loss=0.6566, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 4800: Loss=0.6546, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 4850: Loss=0.6488, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 4900: Loss=0.6718, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 4950: Loss=0.6609, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 5000: Loss=0.6293, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 5050: Loss=0.6616, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5100: Loss=0.6640, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 5150: Loss=0.6642, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 5200: Loss=0.6629, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5250: Loss=0.6377, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 5300: Loss=0.6733, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5350: Loss=0.6467, Weight MAE=0.13kg
+INFO:ml.training.trainer:  Batch 5400: Loss=0.6381, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 5450: Loss=0.6806, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 5500: Loss=0.6463, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 5550: Loss=0.6397, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5600: Loss=0.6451, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5650: Loss=0.6470, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 5700: Loss=0.6593, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5750: Loss=0.6707, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 5800: Loss=0.6912, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5850: Loss=0.6321, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 5900: Loss=0.6773, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 5950: Loss=0.6651, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 6000: Loss=0.6534, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6050: Loss=0.6043, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6100: Loss=0.6375, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6150: Loss=0.6271, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 6200: Loss=0.6188, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 6250: Loss=0.6667, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 6300: Loss=0.6589, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 6350: Loss=0.6165, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 6400: Loss=0.6796, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6450: Loss=0.6469, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 6500: Loss=0.6518, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6550: Loss=0.6479, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6600: Loss=0.6452, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6650: Loss=0.6481, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6700: Loss=0.5943, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 6750: Loss=0.6508, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 6800: Loss=0.6324, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 6850: Loss=0.6910, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 6900: Loss=0.6476, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 6950: Loss=0.6454, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7000: Loss=0.6526, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7050: Loss=0.6291, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 7100: Loss=0.6742, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 7150: Loss=0.6439, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7200: Loss=0.6297, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7250: Loss=0.6568, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 7300: Loss=0.6425, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7350: Loss=0.6895, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7400: Loss=0.6742, Weight MAE=0.18kg
+INFO:ml.training.trainer:  Batch 7450: Loss=0.6514, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7500: Loss=0.6606, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 7550: Loss=0.6492, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 7600: Loss=0.6581, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7650: Loss=0.6571, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7700: Loss=0.6556, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7750: Loss=0.6633, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7800: Loss=0.6667, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 7850: Loss=0.6362, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7900: Loss=0.6505, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 7950: Loss=0.6586, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 8000: Loss=0.6503, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 8050: Loss=0.6581, Weight MAE=0.15kg
+INFO:ml.training.trainer:Train Loss: 0.6577, Weight MAE: 0.16kg
+INFO:ml.training.trainer:Val Loss: 0.6515, Weight MAE: 0.13kg
+INFO:ml.training.trainer:Checkpoint saved: ml/checkpoints/model_epoch1_loss0.6515.pt
+INFO:ml.training.trainer:✅ New best model! Val loss: 0.6515
+INFO:ml.training.trainer:
+--- Epoch 2/100 ---
+INFO:ml.training.trainer:  Batch 50: Loss=0.6207, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 100: Loss=0.6419, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 150: Loss=0.6381, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 200: Loss=0.6309, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 250: Loss=0.6559, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 300: Loss=0.6387, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 350: Loss=0.6472, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 400: Loss=0.6955, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 450: Loss=0.6369, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 500: Loss=0.6262, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 550: Loss=0.6554, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 600: Loss=0.6533, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 650: Loss=0.6203, Weight MAE=0.13kg
+INFO:ml.training.trainer:  Batch 700: Loss=0.6741, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 750: Loss=0.6407, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 800: Loss=0.6592, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 850: Loss=0.6937, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 900: Loss=0.6543, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 950: Loss=0.6470, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1000: Loss=0.6601, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1050: Loss=0.6585, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1100: Loss=0.6444, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1150: Loss=0.6476, Weight MAE=0.17kg
+INFO:ml.training.trainer:  Batch 1200: Loss=0.6631, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1250: Loss=0.6343, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1300: Loss=0.6448, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1350: Loss=0.6733, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1400: Loss=0.6317, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1450: Loss=0.6678, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1500: Loss=0.6597, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1550: Loss=0.6347, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1600: Loss=0.6678, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1650: Loss=0.6492, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1700: Loss=0.6702, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1750: Loss=0.6649, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 1800: Loss=0.6629, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1850: Loss=0.6510, Weight MAE=0.14kg
+INFO:ml.training.trainer:  Batch 1900: Loss=0.6403, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 1950: Loss=0.6450, Weight MAE=0.16kg
+INFO:ml.training.trainer:  Batch 2000: Loss=0.6564, Weight MAE=0.13kg
+INFO:ml.training.trainer:  Batch 2050: Loss=0.6380, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2100: Loss=0.6467, Weight MAE=0.15kg
+INFO:ml.training.trainer:  Batch 2150: Loss=0.6427, Weight MAE=0.16kg

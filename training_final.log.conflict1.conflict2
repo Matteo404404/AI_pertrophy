@@ -1,0 +1,15 @@
+INFO:__main__:================================================================================
+INFO:__main__:STRENGTH PREDICTION MODEL - TRAINING PIPELINE
+INFO:__main__:================================================================================
+INFO:__main__:
+[STEP 1] Generating synthetic training data...
+INFO:__main__:  • Users: 10000
+INFO:__main__:  • History: 90 days per user
+INFO:__main__:  • Features: diet, sleep, supplements, recovery, assessment
+INFO:ml.data.enhanced_synthetic_generator:Initialized generator for 10000 users, 90 days history
+INFO:ml.data.enhanced_synthetic_generator:Generating user 1000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 2000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 3000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 4000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 5000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 6000/10000

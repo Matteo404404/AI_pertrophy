@@ -217,17 +217,8 @@ class StrengthPredictionDataset(Dataset):
 
 def create_dataloaders(df: pd.DataFrame, batch_size: int = 32, 
                       train_split: float = 0.8) -> Tuple:
-    """
-    Create train and validation DataLoaders.
+    """Create train and validation DataLoaders - SINGLE THREADED (STABLE)."""
     
-    Args:
-        df: Training DataFrame
-        batch_size: Batch size for training
-        train_split: Fraction of data for training (0.8 = 80% train, 20% val)
-    
-    Returns:
-        (train_loader, val_loader, dataset)
-    """
     # Create full dataset
     full_dataset = StrengthPredictionDataset(df, sequence_length=14, normalize=True)
     
@@ -243,29 +234,24 @@ def create_dataloaders(df: pd.DataFrame, batch_size: int = 32,
     )
     
     logger.info(f"Created dataloaders: {train_size} train, {val_size} val")
-
-    ctx = mp.get_context('spawn')
     
-    # Create dataloaders with multi-worker configuration
+    # SINGLE-THREADED CONFIGURATION
+    # This is the ONLY configuration that works reliably
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=3,                      # 3 workers with spawn
-        pin_memory=True,
-        persistent_workers=True,
-        prefetch_factor=2,                  # Lower prefetch with spawn
-        multiprocessing_context=ctx         # CRITICAL: spawn context
+        num_workers=0,              # MUST BE 0
+        pin_memory=True
     )
     
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=1,              # 1 worker for validation
-        pin_memory=True,
-        persistent_workers=True,
-        prefetch_factor=4
+        num_workers=0,              # MUST BE 0
+        pin_memory=True
     )
     
     return train_loader, val_loader, full_dataset
+

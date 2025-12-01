@@ -1,0 +1,62 @@
+INFO:__main__:================================================================================
+INFO:__main__:STRENGTH PREDICTION MODEL - TRAINING PIPELINE
+INFO:__main__:================================================================================
+INFO:__main__:
+[STEP 1] Generating synthetic training data...
+INFO:__main__:  • Users: 10000
+INFO:__main__:  • History: 90 days per user
+INFO:__main__:  • Features: diet, sleep, supplements, recovery, assessment
+INFO:ml.data.enhanced_synthetic_generator:Initialized generator for 10000 users, 90 days history
+INFO:ml.data.enhanced_synthetic_generator:Generating user 1000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 2000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 3000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 4000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 5000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 6000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 7000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 8000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 9000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generating user 10000/10000
+INFO:ml.data.enhanced_synthetic_generator:Generated 3597969 records for 10000 users
+INFO:ml.data.enhanced_synthetic_generator:Saved dataset to ml/data/training_data.csv
+INFO:__main__:  ✅ Generated 3597969 records
+INFO:__main__:     • Unique users: 10000
+INFO:__main__:     • Unique exercises: 13
+INFO:__main__:
+[STEP 2] Creating PyTorch dataloaders...
+INFO:ml.training.dataset:Built 1293748 training sequences
+INFO:ml.training.dataset:Created dataset with 1293748 sequences
+INFO:ml.training.dataset:Created dataloaders: 1034998 train, 258750 val
+INFO:__main__:  ✅ Created dataloaders
+INFO:__main__:     • Input features: 35
+INFO:__main__:     • Batch size: 128
+INFO:__main__:     • Train batches: 8086
+INFO:__main__:     • Val batches: 2022
+INFO:__main__:
+[STEP 3] Creating PyTorch model...
+INFO:__main__:  • Device: cuda
+INFO:ml.models.pytorch_strength_predictor:Created StrengthPredictorLSTM with 361956 parameters
+INFO:__main__:  ✅ Model created
+INFO:__main__:     • Architecture: LSTM + Attention + Bayesian
+INFO:__main__:     • Parameters: 361,956
+INFO:__main__:
+[STEP 4] Setting up trainer...
+INFO:ml.training.trainer:Trainer initialized on device: cuda
+INFO:ml.training.trainer:Model parameters: 361,956
+INFO:ml.training.trainer:Optimizer setup: AdamW(lr=0.001, weight_decay=1e-05)
+INFO:__main__:  ✅ Trainer ready
+INFO:__main__:     • Optimizer: AdamW(lr=0.001)
+INFO:__main__:     • Scheduler: ReduceLROnPlateau
+INFO:__main__:     • Early stopping: 15 epochs patience
+INFO:__main__:
+[STEP 5] Training model...
+INFO:__main__:  • Max epochs: 100
+INFO:__main__:  • Target metric: Validation Weight MAE
+INFO:__main__:
+INFO:ml.training.trainer:Starting training for 100 epochs...
+INFO:ml.training.trainer:Device: cuda
+INFO:ml.training.trainer:Train batches: 8086, Val batches: 2022
+INFO:ml.training.trainer:
+--- Epoch 1/100 ---
+/usr/lib/python3.13/multiprocessing/resource_tracker.py:324: UserWarning: resource_tracker: There appear to be 11 leaked semaphore objects to clean up at shutdown: {'/mp-v90jv725', '/mp-9_nj28ox', '/mp-zoovi_5x', '/mp-3u0493yg', '/mp-n3y0fzy3', '/mp-yq82cc5i', '/mp-8fw07rqe', '/mp-meudr9wx', '/mp-gcm34j1y', '/mp-uj8j0pv0', '/mp-ebwybqvw'}
+  warnings.warn(
