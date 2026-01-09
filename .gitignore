@@ -1,2 +1,43 @@
-ml/data/training_data.csv
-ml/data/training_data.csv
+# --- Python General ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env/
+.venv/
+*.egg-info/
+
+# --- Machine Learning Data ---
+# Ignore the huge synthetic CSVs
+ml/data/*.csv
+# Keep json files (like normalization_stats.json) as they are small and needed for the GUI
+!ml/data/*.json
+
+# --- Model Weights & Checkpoints ---
+# Ignore intermediate checkpoints (these take up GBs of space)
+ml/checkpoints/
+# Ignore compiled models (unless you specifically want to version control a small one)
+ml/models/*.pt
+ml/models/*.pth
+
+# --- Database ---
+# Don't commit your local testing database
+database/*.db
+database/*.sqlite
+*.sqlite3
+
+# --- Logs & Outputs ---
+*.log
+nohup.out
+training_run*.log
+
+# --- IDE / Editor Settings ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/

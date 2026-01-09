@@ -98,16 +98,17 @@ class EnhancedSyntheticDataGenerator:
     def _generate_user_data(self, user_id: int) -> List[Dict]:
         """Generate complete data for one user."""
         # User profile
-        age = np.random.randint(18, 65)
-        weight_kg = np.random.normal(75, 15)
-        height_cm = np.random.normal(175, 10)
-        body_fat = np.random.uniform(10, 30)
+        age = int(np.random.randint(18, 65))
+        user_weight_kg = float(np.random.normal(75, 15))
+        height_cm = float(np.random.normal(175, 10))
+        body_fat_pct = float(np.random.uniform(10, 30))
         experience = np.random.choice(['beginner', 'intermediate', 'advanced'], p=[0.33, 0.34, 0.33])
-        
+
         # Assessment profile (one-time)
         assessment_score = np.random.randint(50, 100)
         knowledge_features = self._generate_knowledge_features(assessment_score)
-        
+        last_workout_day_offset = None
+
         # Generate workout history
         workout_data = []
         
@@ -117,7 +118,13 @@ class EnhancedSyntheticDataGenerator:
             # Decide if workout day (3-4 per week probability)
             if np.random.random() > 0.5:
                 continue
-            
+            if last_workout_day_offset is None:
+                days_since_last_session = 2.0
+            else:
+                days_since_last_session = float(last_workout_day_offset - day_offset)
+
+            last_workout_day_offset = day_offset
+
             # Select 3-5 exercises for this session
             num_exercises = np.random.randint(5, 12)
             session_exercises = np.random.choice(self.exercises, num_exercises, replace=False)
@@ -146,62 +153,65 @@ class EnhancedSyntheticDataGenerator:
                 # Generate recovery metrics
                 recovery_data = self._generate_recovery_data()
                 
+                
                 record = {
-                    'user_id': user_id,
-                    'session_date': session_date,
-                    'day_offset': days_ago,
-                    'exercise_id': exercise['id'],
-                    'exercise_name': exercise['name'],
+                    # Workout (5)
                     'weight_kg': weight_kg,
                     'reps': reps,
                     'rir': rir,
                     'total_sets': total_sets,
-                    'exercise_order': ex_idx + 1,
+                    'total_volume': weight_kg * reps * total_sets,
                     
-                    # User profile
+                    # User (4)
                     'age': age,
                     'weight_kg_user': weight_kg,
                     'height_cm': height_cm,
-                    'body_fat_pct': body_fat,
-                    'experience_level': experience,
+                    'body_fat_pct': body_fat_pct,
                     
-                    # Assessment (static)
+                    # Knowledge (5)
                     'assessment_score': assessment_score,
                     'training_literacy_index': knowledge_features['literacy_index'],
                     'load_management_score': knowledge_features['load_management'],
                     'technique_score': knowledge_features['technique'],
                     'recovery_knowledge': knowledge_features['recovery_knowledge'],
                     
-                    # Diet
+                    # Diet (6)
                     'calories': diet_data['calories'],
-                    'protein_g': diet_data['protein'],
-                    'carbs_g': diet_data['carbs'],
-                    'fats_g': diet_data['fats'],
-                    'hydration_l': diet_data['hydration'],
-                    'meal_timing_score': diet_data['timing_score'],
-                    'diet_consistency': diet_data['consistency'],
+                    'protein_g': diet_data['protein_g'],
+                    'carbs_g': diet_data['carbs_g'],
+                    'fats_g': diet_data['fats_g'],
+                    'fiber_g': diet_data['fiber_g'],
+                    'water_ml': diet_data['water_ml'],
                     
-                    # Sleep
-                    'sleep_duration': sleep_data['duration'],
+                    # Sleep/stress (4)
+                    'sleep_hours': sleep_data['hours'],
                     'sleep_quality': sleep_data['quality'],
-                    'deep_sleep_pct': sleep_data['deep_pct'],
-                    'rem_sleep_pct': sleep_data['rem_pct'],
-                    'sleep_consistency': sleep_data['consistency'],
+                    'stress_level': sleep_data['stress'],
+                    'days_since_last_session': days_since_last_session,
                     
-                    # Supplements
-                    'creatine_taken': supplement_data['creatine'],
-                    'caffeine_mg': supplement_data['caffeine'],
-                    'beta_alanine_taken': supplement_data['beta_alanine'],
-                    'protein_shake_taken': supplement_data['protein'],
-                    'supplement_count': supplement_data['total_count'],
+                    # Supplements (4)
+                    'creatine': supplement_data['creatine'],
+                    'protein_powder': supplement_data['protein_powder'],
+                    'pre_workout': supplement_data['pre_workout'],
+                    'caffeine_mg': supplement_data['caffeine_mg'],
                     
-                    # Recovery
-                    'days_since_last_session': recovery_data['days_since_last'],
-                    'weekly_volume': recovery_data['weekly_volume'],
-                    'weekly_frequency': recovery_data['weekly_frequency'],
-                    'fatigue_index': recovery_data['fatigue_index'],
-                    'recovery_score': recovery_data['recovery_score'],
+                    # Recovery (7)
+                    'soreness_level': recovery_data['soreness_level'],
+                    'fatigue_level': recovery_data['fatigue_level'],
+                    'readiness_score': recovery_data['readiness_score'],
+                    'hrv': recovery_data['hrv'],
+                    'resting_heart_rate': recovery_data['resting_heart_rate'],
+                    'session_rpe': recovery_data['session_rpe'],
+                    'recovery_quality': recovery_data['recovery_quality'],
+                    
+                    # Keep your existing fields
+                    'user_id': int(user_id),
+                    'exercise_id': int(exercise['id']),   # <--- ADD THIS
+                    'exercise_name': str(exercise['name']), # <--- ADD THIS
+                    'date': str(session_date),
+                    'day_offset': int(day_offset)           # <--- ADD THIS
                 }
+
                 
                 workout_data.append(record)
         
@@ -218,80 +228,45 @@ class EnhancedSyntheticDataGenerator:
             'recovery_knowledge': min(1.0, literacy_index + np.random.normal(0, 0.1)),
         }
     
-    def _generate_diet_data(self, user_weight: float) -> Dict:
-        """Generate realistic diet data."""
-        base_tdee = 2000 + (user_weight * 10)  # Rough estimate
-        
-        # 70% consistency (log 70% of days)
-        consistency = 70 + np.random.normal(0, 10)
-        consistency = max(40, min(100, consistency))
-        
-        # Calories near TDEE
-        calories = base_tdee * np.random.normal(1.0, 0.15)
-        
-        # Protein target: 1.6-2.2g per kg
-        protein = user_weight * np.random.uniform(1.6, 2.2)
-        
-        # Calorie split
-        protein_cals = protein * 4
-        remaining = calories - protein_cals
-        carbs = (remaining * 0.55) / 4
-        fats = (remaining * 0.45) / 9
-        
+    def _generate_diet_data(self, weight_kg):
+        """Generate diet data - ADD fiber_g and water_ml"""
         return {
-            'calories': calories,
-            'protein': protein,
-            'carbs': carbs,
-            'fats': fats,
-            'hydration': np.random.normal(3.0, 0.5),
-            'timing_score': np.random.uniform(0.6, 1.0),
-            'consistency': consistency,
-        }
-    
-    def _generate_sleep_data(self) -> Dict:
-        """Generate realistic sleep data."""
-        # 80% logging consistency
-        if np.random.random() > 0.8:
-            return {
-                'duration': 0,  # Missing data
-                'quality': 0,
-                'deep_pct': 0,
-                'rem_pct': 0,
-                'consistency': 0,
-            }
-        
-        duration = np.random.normal(7.5, 0.8)
-        duration = max(5, min(10, duration))
-        
-        quality = np.random.randint(4, 10)
-        
+        'calories': np.random.randint(1500, 3500),
+        'protein_g': weight_kg * np.random.uniform(1.6, 2.2),
+        'carbs_g': np.random.randint(200, 400),
+        'fats_g': np.random.randint(50, 150),
+        'fiber_g': np.random.randint(20, 45),        # ADD THIS
+        'water_ml': np.random.randint(2000, 4000),}   # ADD THIS}
+
+    def _generate_sleep_data(self):
+        """Generate sleep data - ADD hours and stress"""
         return {
-            'duration': duration,
-            'quality': quality,
-            'deep_pct': np.random.uniform(10, 25),
-            'rem_pct': np.random.uniform(15, 25),
-            'consistency': 80 + np.random.normal(0, 10),
+            'hours': np.random.uniform(5.0, 9.0),        # ADD THIS
+            'quality': np.random.randint(1, 11),
+            'stress': np.random.randint(1, 11),          # ADD THIS
         }
-    
-    def _generate_supplement_data(self) -> Dict:
-        """Generate supplement usage data."""
+
+    def _generate_supplement_data(self):
+        """Generate supplement data - ADD all 4 fields"""
         return {
-            'creatine': np.random.choice([0, 1], p=[0.5, 0.5]),
-            'caffeine': np.random.randint(0, 300),
-            'beta_alanine': np.random.choice([0, 1], p=[0.7, 0.3]),
-            'protein': np.random.choice([0, 1], p=[0.4, 0.6]),
-            'total_count': np.random.randint(0, 4),
+            'creatine': float(np.random.choice([0, 1], p=[0.6, 0.4])),       # 0 or 1
+            'protein_powder': float(np.random.choice([0, 1], p=[0.5, 0.5])), # 0 or 1
+            'pre_workout': float(np.random.choice([0, 1], p=[0.7, 0.3])),    # 0 or 1
+            'caffeine_mg': np.random.randint(0, 400),
         }
-    
-    def _generate_recovery_data(self) -> Dict:
-        """Generate recovery metrics."""
+
+    def _generate_recovery_data(self):
+        """Generate recovery data - ADD all 7 fields"""
         return {
-            'days_since_last': np.random.randint(1, 4),
-            'weekly_volume': np.random.normal(10000, 2000),
-            'weekly_frequency': np.random.randint(3, 6),
-            'fatigue_index': np.random.uniform(0.3, 0.8),
-            'recovery_score': np.random.uniform(0.5, 0.95),
+            'soreness_level': np.random.randint(1, 11),
+            'fatigue_level': np.random.randint(1, 11),
+            'readiness_score': np.random.randint(1, 11),
+            'hrv': np.random.randint(40, 100),
+            'resting_heart_rate': np.random.randint(50, 80),
+            'session_rpe': np.random.randint(1, 11),
+            'recovery_quality': np.random.randint(1, 11),
         }
+
     
     def save_dataset(self, df: pd.DataFrame, filepath: str = 'ml/data/training_data.csv'):
         """Save dataset to CSV."""

@@ -19,6 +19,21 @@ import torch.multiprocessing as mp
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# At the top of the file
+FEATURE_COLUMNS = [
+    'weight_kg', 'reps', 'rir', 'total_sets', 'total_volume',
+    'age', 'weight_kg_user', 'height_cm', 'body_fat_pct',
+    'assessment_score', 'training_literacy_index', 'load_management_score', 
+    'technique_score', 'recovery_knowledge',
+    'calories', 'protein_g', 'carbs_g', 'fats_g', 'fiber_g', 'water_ml',
+    'sleep_hours', 'sleep_quality', 'stress_level', 'days_since_last_session',
+    'creatine', 'protein_powder', 'pre_workout', 'caffeine_mg',
+    'soreness_level', 'fatigue_level', 'readiness_score', 'hrv',
+    'resting_heart_rate', 'session_rpe', 'recovery_quality'
+]
+
+# Then when extracting features:
+#features = sequence_df[FEATURE_COLUMNS].values  # shape: (14, 35)
 
 class StrengthPredictionDataset(Dataset):
     """
@@ -43,9 +58,10 @@ class StrengthPredictionDataset(Dataset):
         self.sequence_length = sequence_length
         self.predict_horizons = predict_horizons or [1, 2, 4, 10]
         self.normalize = normalize
-        
+        self.feature_columns = FEATURE_COLUMNS
+
         # Feature columns
-        self.feature_columns = self._get_feature_columns()
+     #   self.feature_columns = self._get_feature_columns()
         
         # Normalization statistics
         self.feature_stats = {}
@@ -58,36 +74,36 @@ class StrengthPredictionDataset(Dataset):
         
         logger.info(f"Created dataset with {len(self.sequences)} sequences")
     
-    def _get_feature_columns(self) -> List[str]:
-        """Get list of feature columns to use."""
-        features = [
-            # Performance
-            'weight_kg', 'reps', 'rir', 'total_sets',
+    # def _get_feature_columns(self) -> List[str]:
+    #     """Get list of feature columns to use."""
+    #     features = [
+    #         # Performance
+    #         'weight_kg', 'reps', 'rir', 'total_sets',
             
-            # User profile (static)
-            'age', 'weight_kg_user', 'height_cm', 'body_fat_pct',
+    #         # User profile (static)
+    #         'age', 'weight_kg_user', 'height_cm', 'body_fat_pct',
             
-            # Assessment (static per user)
-            'assessment_score', 'training_literacy_index', 
-            'load_management_score', 'technique_score', 'recovery_knowledge',
+    #         # Assessment (static per user)
+    #         'assessment_score', 'training_literacy_index', 
+    #         'load_management_score', 'technique_score', 'recovery_knowledge',
             
-            # Diet
-            'calories', 'protein_g', 'carbs_g', 'fats_g', 'hydration_l',
-            'meal_timing_score', 'diet_consistency',
+    #         # Diet
+    #         'calories', 'protein_g', 'carbs_g', 'fats_g', 'hydration_l',
+    #         'meal_timing_score', 'diet_consistency',
             
-            # Sleep
-            'sleep_duration', 'sleep_quality', 'deep_sleep_pct', 'rem_sleep_pct',
-            'sleep_consistency',
+    #         # Sleep
+    #         'sleep_duration', 'sleep_quality', 'deep_sleep_pct', 'rem_sleep_pct',
+    #         'sleep_consistency',
             
-            # Supplements
-            'creatine_taken', 'caffeine_mg', 'beta_alanine_taken', 
-            'protein_shake_taken', 'supplement_count',
+    #         # Supplements
+    #         'creatine_taken', 'caffeine_mg', 'beta_alanine_taken', 
+    #         'protein_shake_taken', 'supplement_count',
             
-            # Recovery
-            'days_since_last_session', 'weekly_volume', 'weekly_frequency',
-            'fatigue_index', 'recovery_score',
-        ]
-        return features
+    #         # Recovery
+    #         'days_since_last_session', 'weekly_volume', 'weekly_frequency',
+    #         'fatigue_index', 'recovery_score',
+    #     ]
+    #     return features
     
     def _compute_normalization_stats(self):
         """Compute mean and std for each feature."""
@@ -121,9 +137,10 @@ class StrengthPredictionDataset(Dataset):
         for (user_id, exercise_id), group_df in grouped:
             group_df = group_df.sort_values('day_offset')
             
-            if len(group_df) < self.sequence_length + 10:
-                continue  # Skip if not enough data
-            
+            max_h = max(self.predict_horizons)
+            if len(group_df) < self.sequence_length + max_h + 1:
+                continue
+
             # Slide window through data
             for i in range(self.sequence_length, len(group_df) - 3, 1):  # Step by 2 for data efficiency
                 
@@ -170,42 +187,32 @@ class StrengthPredictionDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Get one training example.
-        
+
         Returns:
             (input_features, output_targets)
         """
         seq_data = self.sequences[idx]
-        input_df = seq_data['input_seq']
-        targets = seq_data['targets']
-        
-        # Extract features
-        features = []
-        for _, row in input_df.iterrows():
-            feature_vec = []
-            for col in self.feature_columns:
-                if col in row.index:
-                    feature_vec.append(float(row[col]))
-                else:
-                    feature_vec.append(0.0)
-            features.append(feature_vec)
-        
-        # Convert to tensor (sequence_length, num_features)
-        input_tensor = torch.tensor(features, dtype=torch.float32)
-        
-        # Build output tensor (4 horizons × 3 outputs = 12)
+        input_df = seq_data["input_seq"]
+        targets = seq_data["targets"]
+
+        # --- Extract features as a matrix in the fixed 35-column order ---
+        missing = [c for c in self.feature_columns if c not in input_df.columns]
+        if missing:
+            raise KeyError(f"Missing feature columns in input_df: {missing}")
+
+        x_np = input_df[self.feature_columns].to_numpy(dtype="float32")  # (14, 35)
+        input_tensor = torch.from_numpy(x_np)
+
+        # --- Build output tensor (4 horizons × 3 outputs = 12) ---
         output_list = []
         for horizon in self.predict_horizons:
             target = targets[horizon]
-            output_list.extend([
-                target['weight'],
-                target['reps'],
-                target['rir'],
-            ])
-        
+            output_list.extend([target["weight"], target["reps"], target["rir"]])
+
         output_tensor = torch.tensor(output_list, dtype=torch.float32)
-        
+
         return input_tensor, output_tensor
-    
+
     def get_feature_names(self) -> List[str]:
         """Get list of feature names."""
         return self.feature_columns
