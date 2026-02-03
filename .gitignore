@@ -41,3 +41,5 @@ training_run*.log
 
 # --- Jupyter Notebooks ---
 .ipynb_checkpoints/
+ml_engine/data/training_data.csv
+ml_engine/models/*.pt
