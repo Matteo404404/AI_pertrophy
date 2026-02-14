@@ -1053,3 +1053,146 @@ class DatabaseManager:
         return [dict(session) for session in sessions]
 
 
+    def get_user_workout_history_df(self, user_id, exercise_name):
+        """Fetches training history for AI analysis."""
+        import pandas as pd
+        
+        query = """
+            SELECT 
+                ep.session_date as date,
+                ep.weight_kg,
+                ep.reps_completed as reps,
+                ep.rir_actual as rir,
+                s.sleep_duration_hours,
+                s.sleep_quality,
+                d.protein_g,
+                d.total_calories as calories
+            FROM exercise_performances ep
+            JOIN exercises e ON ep.exercise_id = e.id
+            JOIN workout_sessions ws ON ep.workout_session_id = ws.id
+            LEFT JOIN sleep_entries s ON ws.session_date = s.entry_date AND ws.user_id = s.user_id
+            LEFT JOIN diet_entries d ON ws.session_date = d.entry_date AND ws.user_id = d.user_id
+            WHERE ws.user_id = ? AND e.name = ?
+            ORDER BY ws.session_date ASC
+        """
+        
+        try:
+            df = pd.read_sql_query(query, self.conn, params=(user_id, exercise_name))
+            
+            if df.empty:
+                return df
+                
+            # Aggregate to one row per day (max weight used that day)
+            df = df.groupby('date').agg({
+                'weight_kg': 'max',
+                'reps': 'mean',
+                'rir': 'mean',
+                'sleep_duration_hours': 'first',
+                'sleep_quality': 'first',
+                'protein_g': 'first',
+                'calories': 'first'
+            }).reset_index()
+            
+            # Fill missing data so AI doesn't crash
+            defaults = {
+                'sleep_duration_hours': 7.5, 'sleep_quality': 7,
+                'protein_g': 150, 'calories': 2500, 'rir': 2
+            }
+            df.fillna(defaults, inplace=True)
+            return df
+            
+        except Exception as e:
+            print(f"❌ DB Error getting AI history: {e}")
+            return pd.DataFrame()
+
+    def get_user_ml_profile(self, user_id):
+        """Returns static user features for the AI."""
+        user = self.get_user_by_id(user_id)
+        return {
+            'age': user.get('age', 25),
+            'weight_kg_user': user.get('weight_kg', 75),
+            'height_cm': user.get('height_cm', 175),
+            'body_fat_pct': user.get('body_fat_percentage', 15),
+            # Default mid-level scores
+            'training_literacy_index': 0.5,
+            'recovery_knowledge': 0.5,
+            'technique_score': 0.5,
+            'load_management_score': 0.5,
+            'assessment_score': 75
+        }
+
+    def add_custom_exercise(self, name, category, muscle, equipment, difficulty, is_compound, description, is_unilateral):
+        """Adds a user-defined exercise with full AI metadata"""
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO exercises 
+                (name, category, muscle_group_primary, equipment, difficulty_level, 
+                 is_compound, instructions, is_unilateral)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, category, muscle, equipment, difficulty, is_compound, description, is_unilateral))
+            self.conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            print(f"Error adding exercise: {e}")
+            return None
+
+    def seed_scientific_exercises(self):
+        """Populates DB with evidence-based hypertrophy exercises"""
+        # Check if empty
+        cursor = self.conn.cursor()
+        count = cursor.execute("SELECT count(*) FROM exercises").fetchone()[0]
+        if count > 10: return # Already populated
+
+        exercises = [
+            # CHEST
+            ("DB Bench Press", "Push", "Chest", "Dumbbell", "Intermediate", True, 
+             "High stability requirements. Offers greater ROM than barbell. Peak tension in mid-range.", True),
+            ("Cable Fly (Crossover)", "Push", "Chest", "Cable", "Beginner", False, 
+             "Constant tension profile. Excellent for training chest in the shortened position.", True),
+            ("Incline Barbell Press", "Push", "Chest", "Barbell", "Intermediate", True, 
+             "Biases clavicular (upper) pec fibers. Fixed path allows high mechanical tension loading.", False),
+            
+            # BACK
+            ("Chest-Supported Row", "Pull", "Back", "Machine", "Beginner", True, 
+             "Removes lower back limitation. High stability allows maximal output for Lats/Rhomboids.", True),
+            ("Lat Pulldown (Neutral)", "Pull", "Back", "Cable", "Beginner", True, 
+             "Vertical pull biasing the Lats. Neutral grip improves leverage and reduces shoulder impingement risk.", True),
+            ("Straight Arm Pulldown", "Pull", "Back", "Cable", "Intermediate", False, 
+             "Isolation movement for Lats. Trains the muscle in the lengthened position (stretch).", False),
+
+            # LEGS (Quads)
+            ("Hack Squat", "Legs", "Quads", "Machine", "Intermediate", True, 
+             "High stability squat pattern. Removes balance factor, allowing maximal motor unit recruitment for quads.", False),
+            ("Leg Extension", "Legs", "Quads", "Machine", "Beginner", False, 
+             "Only exercise to fully load the Rectus Femoris in shortened position. Critical for complete development.", True),
+            
+            # LEGS (Hams/Glutes)
+            ("Romanian Deadlift", "Legs", "Hamstrings", "Barbell", "Advanced", True, 
+             "Stretch-mediated hypertrophy king for hamstrings. High systemic fatigue but immense stimulus.", False),
+            ("Seated Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False, 
+             "Superior to lying curl due to hip flexion putting hamstrings at optimal length for tension.", True),
+
+            # SHOULDERS
+            ("Cable Lateral Raise", "Push", "Shoulders", "Cable", "Intermediate", False, 
+             "Consistent resistance profile throughout ROM unlike dumbbells. Biases side delts.", True),
+            ("Face Pull", "Pull", "Shoulders", "Cable", "Beginner", False, 
+             "Rear delt and rotator cuff focus. Critical for structural balance and shoulder health.", False),
+        ]
+
+        # Note: You might need to run a migration to add 'is_unilateral' column if it doesn't exist
+        # For now we insert without it if table creates error, or you can delete the .db file to regenerate
+        try:
+            # Quick hack to ensure column exists
+            cursor.execute("ALTER TABLE exercises ADD COLUMN is_unilateral BOOLEAN DEFAULT 0")
+        except: pass # Column likely exists or logic handled
+
+        for ex in exercises:
+            try:
+                cursor.execute("""
+                    INSERT INTO exercises (name, category, muscle_group_primary, equipment, 
+                    difficulty_level, is_compound, instructions, is_unilateral)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, ex)
+            except: pass
+        self.conn.commit()

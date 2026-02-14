@@ -1,1227 +1,561 @@
 """
-Scientific Hypertrophy Trainer - Comprehensive Tracking System
-Diet, Sleep, Workout Logging, Body Measurements with Calendar
+Scientific Hypertrophy Trainer - Tracking Interface v3.1 (STABLE)
+- Fixed: Added missing 'refresh_data' to prevent crash
+- Fixed: Restored Save/Load logic (removed 'pass' placeholders)
+- Design: Professional Dark Theme structure
+- AI: Real Data Visualization
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QTabWidget, QCalendarWidget,
-                             QLineEdit, QDoubleSpinBox, QSpinBox, QTextEdit,
-                             QComboBox, QListWidget, QDialog, QDialogButtonBox,
-                             QGridLayout, QGroupBox, QScrollArea, QMessageBox,
-                             QTimeEdit, QCheckBox, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QFileDialog)
-from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal
-from PyQt6.QtGui import QTextCharFormat, QColor
-from datetime import datetime, date
-import csv
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
+    QTabWidget, QCalendarWidget, QDoubleSpinBox, QSpinBox, QTextEdit,
+    QComboBox, QGroupBox, QScrollArea, QMessageBox, QTimeEdit, 
+    QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QCheckBox,
+    QGridLayout, QSizePolicy
+)
+from PyQt6.QtCore import Qt, QDate
+from datetime import date
+import numpy as np
+import json
+
+# Matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
 try:
     from ml_engine.inference.hybrid_predictor import HybridPredictor
     ML_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️ ML Engine not found: {e}")
+except ImportError:
     ML_AVAILABLE = False
 
+# --- MICRONUTRIENT CONFIG ---
+MICROS_CONFIG = {
+    "Vitamins (Fat Soluble)": [
+        ("Vitamin A", "IU"), ("Vitamin D3", "IU"), ("Vitamin E", "mg"), ("Vitamin K1/K2", "mcg")
+    ],
+    "Vitamins (Water Soluble)": [
+        ("Vitamin C", "mg"), ("Thiamin (B1)", "mg"), ("Riboflavin (B2)", "mg"), 
+        ("Niacin (B3)", "mg"), ("B6", "mg"), ("Folate (B9)", "mcg"), ("B12", "mcg")
+    ],
+    "Minerals (Macro)": [
+        ("Calcium", "mg"), ("Magnesium", "mg"), ("Potassium", "mg"), ("Sodium", "mg"), ("Chloride", "mg")
+    ],
+    "Minerals (Trace)": [
+        ("Iron", "mg"), ("Zinc", "mg"), ("Copper", "mg"), ("Selenium", "mcg"), ("Iodine", "mcg")
+    ],
+    "Other": [
+        ("Water", "L"), ("Fiber", "g"), ("Sat. Fat", "g"), ("Omega-3", "g"), ("Cholesterol", "mg")
+    ]
+}
 
 class TrackingWidget(QWidget):
-    """Comprehensive tracking interface with calendar and multiple tracking types"""
-    
     def __init__(self, db_manager, tracking_system, user_manager):
         super().__init__()
         self.db = db_manager
-        self.tracking_system = tracking_system
         self.user_manager = user_manager
         self.selected_date = date.today()
+        self.current_session_sets = []
+        self.micro_inputs = {} 
         
+        if ML_AVAILABLE:
+            model_path = "ml_engine/models/strength_predictor.pt"
+            self.ai_predictor = HybridPredictor(self.db, model_path)
+        else:
+            self.ai_predictor = None
+            
         self.init_ui()
-    
+
     def init_ui(self):
-        """Initialize tracking interface"""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
         
         # Header
-        header = QLabel("Progress Tracking")
-        header.setStyleSheet("font-size: 32px; font-weight: bold; color: #667eea; margin-bottom: 20px;")
+        header = QLabel("Scientific Tracking Console")
+        header.setStyleSheet("font-size: 28px; font-weight: 800; color: #89b4fa; letter-spacing: 1px;")
         main_layout.addWidget(header)
         
-        # Main content layout
         content_layout = QHBoxLayout()
         
-        # Left side - Calendar
+        # Calendar (Left Sidebar)
         self.create_calendar_section(content_layout)
         
-        # Right side - Tracking tabs
-        self.create_tracking_tabs(content_layout)
+        # Tabs (Right Content)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.create_diet_tab(), "🧪 Nutrition")
+        self.tabs.addTab(self.create_workout_tab(), "🏋️ Hypertrophy") 
+        self.tabs.addTab(self.create_sleep_tab(), "😴 Recovery")
         
+        content_layout.addWidget(self.tabs, 1)
         main_layout.addLayout(content_layout)
-        
-        # Bottom buttons
-        bottom_layout = QHBoxLayout()
-        
-        export_btn = QPushButton("Export Data (CSV)")
-        export_btn.clicked.connect(self.export_data)
-        export_btn.setStyleSheet("background-color: #6c757d;")
-        
-        bottom_layout.addWidget(export_btn)
-        bottom_layout.addStretch()
-        
-        main_layout.addLayout(bottom_layout)
-    
+
     def create_calendar_section(self, parent_layout):
-        """Create calendar widget section"""
-        calendar_frame = QFrame()
-        calendar_frame.setMaximumWidth(400)
+        frame = QFrame()
+        frame.setFixedWidth(320)
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(15, 20, 15, 20)
         
-        calendar_layout = QVBoxLayout(calendar_frame)
-        
-        # Calendar title
-        cal_title = QLabel("Select Date")
-        cal_title.setStyleSheet("font-size: 20px; font-weight: bold; margin-bottom: 15px;")
-        calendar_layout.addWidget(cal_title)
-        
-        # Calendar widget
         self.calendar = QCalendarWidget()
         self.calendar.setSelectedDate(QDate.currentDate())
         self.calendar.clicked.connect(self.on_date_selected)
-        calendar_layout.addWidget(self.calendar)
+        layout.addWidget(self.calendar)
         
-        # Date info
-        self.date_info_label = QLabel(f"Selected: {date.today().strftime('%B %d, %Y')}")
-        self.date_info_label.setStyleSheet("""
-            font-size: 14px;
-            color: #6c757d;
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 6px;
-        """)
-        calendar_layout.addWidget(self.date_info_label)
+        self.date_info_label = QLabel(f"{date.today().strftime('%A, %B %d')}")
+        self.date_info_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #fab387; margin-top: 15px;")
+        self.date_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.date_info_label)
         
-        # Today button
         today_btn = QPushButton("Jump to Today")
+        today_btn.setProperty("class", "action_btn")
         today_btn.clicked.connect(self.jump_to_today)
-        today_btn.setStyleSheet("background-color: #667eea; margin-top: 10px;")
-        calendar_layout.addWidget(today_btn)
+        layout.addWidget(today_btn)
         
-        parent_layout.addWidget(calendar_frame)
-    
-    def create_tracking_tabs(self, parent_layout):
-        """Create tracking tabs for different tracking types"""
-        tabs_frame = QFrame()
-        tabs_layout = QVBoxLayout(tabs_frame)
-        
-        self.tabs = QTabWidget()
-        
-        # Create tabs
-        self.diet_tab = self.create_diet_tab()
-        self.sleep_tab = self.create_sleep_tab()
-        self.workout_tab = self.create_workout_tab()
-        self.body_tab = self.create_body_measurements_tab()
-        
-        self.tabs.addTab(self.diet_tab, "Diet")
-        self.tabs.addTab(self.sleep_tab, "Sleep")
-        self.tabs.addTab(self.workout_tab, "Workout")
-        self.tabs.addTab(self.body_tab, "Body Metrics")
-        
-        tabs_layout.addWidget(self.tabs)
-        
-        parent_layout.addWidget(tabs_frame)
-    
+        layout.addStretch()
+        parent_layout.addWidget(frame)
+
+    # ==========================================
+    # 🧪 ADVANCED NUTRITION TAB
+    # ==========================================
     def create_diet_tab(self):
-        """Create comprehensive diet tracking tab"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
-        # Scroll area for form
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; }")
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         
         form_widget = QWidget()
         form_layout = QVBoxLayout(form_widget)
-        
-        # Macros section
+        form_layout.setSpacing(25)
+        form_layout.setContentsMargins(10, 10, 20, 10)
+
+        # 1. Macros
         macros_group = QGroupBox("Macronutrients")
-        macros_layout = QGridLayout()
+        grid = QGridLayout(macros_group)
+        grid.setSpacing(15)
         
-        # Calories
-        macros_layout.addWidget(QLabel("Total Calories:"), 0, 0)
+        self.diet_protein = self._create_macro_input("Protein", "g", grid, 0, 0)
+        self.diet_carbs = self._create_macro_input("Carbs", "g", grid, 0, 2)
+        self.diet_fats = self._create_macro_input("Fats", "g", grid, 1, 0)
+        
+        # Total Calories
         self.diet_calories = QSpinBox()
         self.diet_calories.setRange(0, 10000)
         self.diet_calories.setSuffix(" kcal")
-        macros_layout.addWidget(self.diet_calories, 0, 1)
+        self.diet_calories.setStyleSheet("font-size: 16px; color: #a6e3a1; font-weight: bold;")
         
-        # Protein
-        macros_layout.addWidget(QLabel("Protein:"), 1, 0)
-        self.diet_protein = QDoubleSpinBox()
-        self.diet_protein.setRange(0, 500)
-        self.diet_protein.setSuffix(" g")
-        macros_layout.addWidget(self.diet_protein, 1, 1)
+        lbl = QLabel("🔥 Total Energy:")
+        lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #a6e3a1;")
+        grid.addWidget(lbl, 1, 2)
+        grid.addWidget(self.diet_calories, 1, 3)
         
-        # Carbs
-        macros_layout.addWidget(QLabel("Carbohydrates:"), 2, 0)
-        self.diet_carbs = QDoubleSpinBox()
-        self.diet_carbs.setRange(0, 1000)
-        self.diet_carbs.setSuffix(" g")
-        macros_layout.addWidget(self.diet_carbs, 2, 1)
-        
-        # Fats
-        macros_layout.addWidget(QLabel("Fats:"), 3, 0)
-        self.diet_fats = QDoubleSpinBox()
-        self.diet_fats.setRange(0, 300)
-        self.diet_fats.setSuffix(" g")
-        macros_layout.addWidget(self.diet_fats, 3, 1)
-        
-        # Fiber
-        macros_layout.addWidget(QLabel("Fiber (optional):"), 4, 0)
-        self.diet_fiber = QDoubleSpinBox()
-        self.diet_fiber.setRange(0, 100)
-        self.diet_fiber.setSuffix(" g")
-        macros_layout.addWidget(self.diet_fiber, 4, 1)
-        
-        # Sugar
-        macros_layout.addWidget(QLabel("Sugar (optional):"), 5, 0)
-        self.diet_sugar = QDoubleSpinBox()
-        self.diet_sugar.setRange(0, 300)
-        self.diet_sugar.setSuffix(" g")
-        macros_layout.addWidget(self.diet_sugar, 5, 1)
-        
-        macros_group.setLayout(macros_layout)
         form_layout.addWidget(macros_group)
+
+        # 2. Dynamic Micros
+        for category, items in MICROS_CONFIG.items():
+            group = QGroupBox(category)
+            g_layout = QGridLayout(group)
+            g_layout.setSpacing(10)
+            
+            row, col = 0, 0
+            for name, unit in items:
+                g_layout.addWidget(QLabel(name + ":"), row, col)
+                inp = QDoubleSpinBox()
+                inp.setRange(0, 50000)
+                inp.setSuffix(f" {unit}")
+                inp.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+                
+                self.micro_inputs[name] = inp
+                g_layout.addWidget(inp, row, col + 1)
+                
+                col += 2
+                if col >= 6:
+                    col = 0
+                    row += 1
+            form_layout.addWidget(group)
         
-        # Micronutrients section
-        micros_group = QGroupBox("Micronutrients (optional)")
-        micros_layout = QGridLayout()
-        
-        self.diet_sodium = QDoubleSpinBox()
-        self.diet_sodium.setRange(0, 10000)
-        self.diet_sodium.setSuffix(" mg")
-        micros_layout.addWidget(QLabel("Sodium:"), 0, 0)
-        micros_layout.addWidget(self.diet_sodium, 0, 1)
-        
-        self.diet_potassium = QDoubleSpinBox()
-        self.diet_potassium.setRange(0, 10000)
-        self.diet_potassium.setSuffix(" mg")
-        micros_layout.addWidget(QLabel("Potassium:"), 1, 0)
-        micros_layout.addWidget(self.diet_potassium, 1, 1)
-        
-        self.diet_calcium = QDoubleSpinBox()
-        self.diet_calcium.setRange(0, 5000)
-        self.diet_calcium.setSuffix(" mg")
-        micros_layout.addWidget(QLabel("Calcium:"), 2, 0)
-        micros_layout.addWidget(self.diet_calcium, 2, 1)
-        
-        self.diet_iron = QDoubleSpinBox()
-        self.diet_iron.setRange(0, 100)
-        self.diet_iron.setSuffix(" mg")
-        micros_layout.addWidget(QLabel("Iron:"), 3, 0)
-        micros_layout.addWidget(self.diet_iron, 3, 1)
-        
-        self.diet_vitamin_d = QDoubleSpinBox()
-        self.diet_vitamin_d.setRange(0, 200)
-        self.diet_vitamin_d.setSuffix(" µg")
-        micros_layout.addWidget(QLabel("Vitamin D:"), 4, 0)
-        micros_layout.addWidget(self.diet_vitamin_d, 4, 1)
-        
-        self.diet_vitamin_c = QDoubleSpinBox()
-        self.diet_vitamin_c.setRange(0, 1000)
-        self.diet_vitamin_c.setSuffix(" mg")
-        micros_layout.addWidget(QLabel("Vitamin C:"), 5, 0)
-        micros_layout.addWidget(self.diet_vitamin_c, 5, 1)
-        
-        self.diet_b12 = QDoubleSpinBox()
-        self.diet_b12.setRange(0, 100)
-        self.diet_b12.setSuffix(" µg")
-        micros_layout.addWidget(QLabel("Vitamin B12:"), 6, 0)
-        micros_layout.addWidget(self.diet_b12, 6, 1)
-        
-        micros_group.setLayout(micros_layout)
-        form_layout.addWidget(micros_group)
-        
-        # Hypertrophy-specific section
-        hypertrophy_group = QGroupBox("Hypertrophy Optimization")
-        hypertrophy_layout = QGridLayout()
-        
-        self.diet_hydration = QDoubleSpinBox()
-        self.diet_hydration.setRange(0, 10)
-        self.diet_hydration.setSuffix(" L")
-        self.diet_hydration.setDecimals(1)
-        hypertrophy_layout.addWidget(QLabel("Hydration:"), 0, 0)
-        hypertrophy_layout.addWidget(self.diet_hydration, 0, 1)
-        
-        self.diet_meals = QSpinBox()
-        self.diet_meals.setRange(1, 10)
-        hypertrophy_layout.addWidget(QLabel("Meal Count:"), 1, 0)
-        hypertrophy_layout.addWidget(self.diet_meals, 1, 1)
-        
-        self.diet_protein_per_kg = QDoubleSpinBox()
-        self.diet_protein_per_kg.setRange(0, 5)
-        self.diet_protein_per_kg.setSuffix(" g/kg")
-        self.diet_protein_per_kg.setDecimals(1)
-        hypertrophy_layout.addWidget(QLabel("Protein per kg:"), 2, 0)
-        hypertrophy_layout.addWidget(self.diet_protein_per_kg, 2, 1)
-        
-        self.diet_pre_workout_carbs = QDoubleSpinBox()
-        self.diet_pre_workout_carbs.setRange(0, 200)
-        self.diet_pre_workout_carbs.setSuffix(" g")
-        hypertrophy_layout.addWidget(QLabel("Pre-workout Carbs:"), 3, 0)
-        hypertrophy_layout.addWidget(self.diet_pre_workout_carbs, 3, 1)
-        
-        self.diet_post_workout_carbs = QDoubleSpinBox()
-        self.diet_post_workout_carbs.setRange(0, 200)
-        self.diet_post_workout_carbs.setSuffix(" g")
-        hypertrophy_layout.addWidget(QLabel("Post-workout Carbs:"), 4, 0)
-        hypertrophy_layout.addWidget(self.diet_post_workout_carbs, 4, 1)
-        
-        self.diet_creatine = QDoubleSpinBox()
-        self.diet_creatine.setRange(0, 20)
-        self.diet_creatine.setSuffix(" g")
-        hypertrophy_layout.addWidget(QLabel("Creatine:"), 5, 0)
-        hypertrophy_layout.addWidget(self.diet_creatine, 5, 1)
-        
-        hypertrophy_group.setLayout(hypertrophy_layout)
-        form_layout.addWidget(hypertrophy_group)
-        
-        # Notes
-        form_layout.addWidget(QLabel("Notes:"))
-        self.diet_notes = QTextEdit()
-        self.diet_notes.setMaximumHeight(100)
-        self.diet_notes.setPlaceholderText("Additional diet notes...")
-        form_layout.addWidget(self.diet_notes)
-        
-        # Save button
-        save_diet_btn = QPushButton("Save Diet Entry")
-        save_diet_btn.clicked.connect(self.save_diet_entry)
-        save_diet_btn.setMinimumHeight(50)
-        save_diet_btn.setStyleSheet("background-color: #28a745; font-size: 16px; font-weight: bold;")
-        form_layout.addWidget(save_diet_btn)
+        save_btn = QPushButton("💾 Save Nutrition Log")
+        save_btn.setProperty("class", "success_btn")
+        save_btn.setMinimumHeight(50)
+        save_btn.clicked.connect(self.save_diet_entry)
+        form_layout.addWidget(save_btn)
         
         scroll.setWidget(form_widget)
         layout.addWidget(scroll)
-        
         return tab
-    
-    def create_sleep_tab(self):
-        """Create comprehensive sleep tracking tab"""
+
+    def _create_macro_input(self, label, suffix, layout, row, col):
+        lbl = QLabel(f"{label}:")
+        inp = QDoubleSpinBox()
+        inp.setRange(0, 1000)
+        inp.setSuffix(f" {suffix}")
+        inp.valueChanged.connect(self.auto_calculate_calories)
+        layout.addWidget(lbl, row, col)
+        layout.addWidget(inp, row, col + 1)
+        return inp
+
+    def auto_calculate_calories(self):
+        p = self.diet_protein.value() * 4
+        c = self.diet_carbs.value() * 4
+        f = self.diet_fats.value() * 9
+        self.diet_calories.setValue(int(p + c + f))
+
+    # ==========================================
+    # 🏋️ WORKOUT TAB
+    # ==========================================
+    def create_workout_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
+        # 1. Exercise Selector
+        sel_frame = QFrame()
+        sel_frame.setStyleSheet("background: #262639; border-radius: 8px; padding: 15px; border: 1px solid #313244;")
+        sel_layout = QHBoxLayout(sel_frame)
+        
+        # Display selected exercise
+        self.lbl_selected_exercise = QLabel("No Exercise Selected")
+        self.lbl_selected_exercise.setStyleSheet("font-size: 18px; font-weight: bold; color: #89b4fa;")
+        
+        # The Library Button
+        self.btn_library = QPushButton("📖 Open Exercise Library")
+        self.btn_library.setProperty("class", "action_btn")
+        self.btn_library.clicked.connect(self.open_exercise_library)
+        
+        sel_layout.addWidget(self.lbl_selected_exercise)
+        sel_layout.addStretch()
+        sel_layout.addWidget(self.btn_library)
+        layout.addWidget(sel_frame)
+        
+        # Store current ID
+        self.current_exercise_id = None
+
+
+        # Input
+        input_group = QGroupBox("Set Data")
+        grid = QGridLayout(input_group)
+        
+        self.weight_input = QDoubleSpinBox()
+        self.weight_input.setRange(0, 500)
+        self.weight_input.setSuffix(" kg")
+        grid.addWidget(QLabel("Load:"), 0, 0)
+        grid.addWidget(self.weight_input, 0, 1)
+        
+        self.reps_input = QSpinBox()
+        self.reps_input.setRange(0, 100)
+        grid.addWidget(QLabel("Reps:"), 0, 2)
+        grid.addWidget(self.reps_input, 0, 3)
+        
+        self.rir_input = QSpinBox()
+        self.rir_input.setRange(0, 10)
+        grid.addWidget(QLabel("RIR:"), 0, 4)
+        grid.addWidget(self.rir_input, 0, 5)
+        
+        self.unilateral_check = QCheckBox("Unilateral (Single Limb)")
+        grid.addWidget(self.unilateral_check, 1, 0, 1, 2)
+        
+        add_btn = QPushButton("Add Set")
+        add_btn.setProperty("class", "action_btn")
+        add_btn.clicked.connect(self.add_set_to_list)
+        grid.addWidget(add_btn, 1, 4, 1, 2)
+        
+        layout.addWidget(input_group)
+        
+        # Table
+        self.sets_table = QTableWidget()
+        self.sets_table.setColumnCount(5)
+        self.sets_table.setHorizontalHeaderLabels(["Exercise", "Load", "Reps", "RIR", "Mode"])
+        self.sets_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.sets_table)
+        
+        # Footer
+        btn_row = QHBoxLayout()
+        save_btn = QPushButton("✅ Commit Session")
+        save_btn.setProperty("class", "success_btn")
+        save_btn.clicked.connect(self.save_workout_session)
+        btn_row.addWidget(save_btn)
+        
+        self.predict_btn = QPushButton("🧠 AI Trajectory Analysis")
+        self.predict_btn.setProperty("class", "action_btn")
+        self.predict_btn.clicked.connect(self.on_predict_click)
+        btn_row.addWidget(self.predict_btn)
+        
+        layout.addLayout(btn_row)
+        return tab
+
+    # ==========================================
+    # 😴 SLEEP TAB (RESTORED & STYLED)
+    # ==========================================
+    def create_sleep_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; }")
-        
         form_widget = QWidget()
         form_layout = QVBoxLayout(form_widget)
         
-        # Basic sleep metrics
-        basic_group = QGroupBox("Sleep Metrics")
-        basic_layout = QGridLayout()
+        group = QGroupBox("Sleep Metrics")
+        grid = QGridLayout(group)
         
-        basic_layout.addWidget(QLabel("Bedtime:"), 0, 0)
-        self.sleep_bedtime = QTimeEdit()
-        self.sleep_bedtime.setDisplayFormat("HH:mm")
-        basic_layout.addWidget(self.sleep_bedtime, 0, 1)
-        
-        basic_layout.addWidget(QLabel("Wake Time:"), 1, 0)
-        self.sleep_waketime = QTimeEdit()
-        self.sleep_waketime.setDisplayFormat("HH:mm")
-        basic_layout.addWidget(self.sleep_waketime, 1, 1)
-        
-        basic_layout.addWidget(QLabel("Total Duration:"), 2, 0)
         self.sleep_duration = QDoubleSpinBox()
         self.sleep_duration.setRange(0, 24)
-        self.sleep_duration.setSuffix(" hours")
-        self.sleep_duration.setDecimals(1)
-        basic_layout.addWidget(self.sleep_duration, 2, 1)
+        self.sleep_duration.setSuffix(" hrs")
+        grid.addWidget(QLabel("Duration:"), 0, 0)
+        grid.addWidget(self.sleep_duration, 0, 1)
         
-        basic_layout.addWidget(QLabel("Sleep Quality (1-10):"), 3, 0)
         self.sleep_quality = QSpinBox()
         self.sleep_quality.setRange(1, 10)
-        basic_layout.addWidget(self.sleep_quality, 3, 1)
+        grid.addWidget(QLabel("Quality (1-10):"), 1, 0)
+        grid.addWidget(self.sleep_quality, 1, 1)
         
-        basic_group.setLayout(basic_layout)
-        form_layout.addWidget(basic_group)
+        form_layout.addWidget(group)
         
-        # Advanced metrics
-        advanced_group = QGroupBox("Advanced Metrics (optional)")
-        advanced_layout = QGridLayout()
+        save_btn = QPushButton("Save Recovery Data")
+        save_btn.setProperty("class", "success_btn")
+        save_btn.clicked.connect(self.save_sleep_entry)
+        form_layout.addWidget(save_btn)
         
-        self.sleep_fall_asleep = QSpinBox()
-        self.sleep_fall_asleep.setRange(0, 180)
-        self.sleep_fall_asleep.setSuffix(" minutes")
-        advanced_layout.addWidget(QLabel("Time to Fall Asleep:"), 0, 0)
-        advanced_layout.addWidget(self.sleep_fall_asleep, 0, 1)
-        
-        self.sleep_awakenings = QSpinBox()
-        self.sleep_awakenings.setRange(0, 20)
-        advanced_layout.addWidget(QLabel("Awakenings Count:"), 1, 0)
-        advanced_layout.addWidget(self.sleep_awakenings, 1, 1)
-        
-        self.sleep_deep = QDoubleSpinBox()
-        self.sleep_deep.setRange(0, 12)
-        self.sleep_deep.setSuffix(" hours")
-        self.sleep_deep.setDecimals(1)
-        advanced_layout.addWidget(QLabel("Deep Sleep:"), 2, 0)
-        advanced_layout.addWidget(self.sleep_deep, 2, 1)
-        
-        self.sleep_rem = QDoubleSpinBox()
-        self.sleep_rem.setRange(0, 12)
-        self.sleep_rem.setSuffix(" hours")
-        self.sleep_rem.setDecimals(1)
-        advanced_layout.addWidget(QLabel("REM Sleep:"), 3, 0)
-        advanced_layout.addWidget(self.sleep_rem, 3, 1)
-        
-        advanced_group.setLayout(advanced_layout)
-        form_layout.addWidget(advanced_group)
-        
-        # Environment factors
-        env_group = QGroupBox("Sleep Environment")
-        env_layout = QGridLayout()
-        
-        self.sleep_caffeine_cutoff = QTimeEdit()
-        self.sleep_caffeine_cutoff.setDisplayFormat("HH:mm")
-        env_layout.addWidget(QLabel("Last Caffeine:"), 0, 0)
-        env_layout.addWidget(self.sleep_caffeine_cutoff, 0, 1)
-        
-        self.sleep_screen_time = QSpinBox()
-        self.sleep_screen_time.setRange(0, 300)
-        self.sleep_screen_time.setSuffix(" minutes")
-        env_layout.addWidget(QLabel("Screen Time Before Bed:"), 1, 0)
-        env_layout.addWidget(self.sleep_screen_time, 1, 1)
-        
-        self.sleep_temperature = QDoubleSpinBox()
-        self.sleep_temperature.setRange(10, 30)
-        self.sleep_temperature.setSuffix(" °C")
-        self.sleep_temperature.setDecimals(1)
-        env_layout.addWidget(QLabel("Room Temperature:"), 2, 0)
-        env_layout.addWidget(self.sleep_temperature, 2, 1)
-        
-        self.sleep_env_rating = QSpinBox()
-        self.sleep_env_rating.setRange(1, 10)
-        env_layout.addWidget(QLabel("Environment Rating (1-10):"), 3, 0)
-        env_layout.addWidget(self.sleep_env_rating, 3, 1)
-        
-        env_group.setLayout(env_layout)
-        form_layout.addWidget(env_group)
-        
-        # Notes
-        form_layout.addWidget(QLabel("Notes:"))
-        self.sleep_notes = QTextEdit()
-        self.sleep_notes.setMaximumHeight(100)
-        self.sleep_notes.setPlaceholderText("Sleep quality notes...")
-        form_layout.addWidget(self.sleep_notes)
-        
-        # Save button
-        save_sleep_btn = QPushButton("Save Sleep Entry")
-        save_sleep_btn.clicked.connect(self.save_sleep_entry)
-        save_sleep_btn.setMinimumHeight(50)
-        save_sleep_btn.setStyleSheet("background-color: #28a745; font-size: 16px; font-weight: bold;")
-        form_layout.addWidget(save_sleep_btn)
-        
+        form_layout.addStretch()
         scroll.setWidget(form_widget)
         layout.addWidget(scroll)
-        
         return tab
-    
-    def create_workout_tab(self):
-        """Create workout logging tab"""
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        
-        # Workout selection/creation
-        workout_header = QLabel("Log Workout Session")
-        workout_header.setStyleSheet("font-size: 20px; font-weight: bold; margin-bottom: 15px;")
-        layout.addWidget(workout_header)
-        
-        # Workout template selection
-        template_layout = QHBoxLayout()
-        
-        template_layout.addWidget(QLabel("Select Workout:"))
-        self.workout_template_combo = QComboBox()
-        self.workout_template_combo.addItem("-- Create New Workout --")
-        template_layout.addWidget(self.workout_template_combo)
-        
-        create_template_btn = QPushButton("Manage Workouts")
-        create_template_btn.clicked.connect(self.open_workout_manager)
-        create_template_btn.setStyleSheet("background-color: #667eea;")
-        template_layout.addWidget(create_template_btn)
-        
-        layout.addLayout(template_layout)
-        
-        # Workout logging area (placeholder for now)
-        workout_info = QLabel("Workout logging interface\n\nSelect or create a workout template to begin logging exercises.")
-        workout_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        workout_info.setStyleSheet("""
-            font-size: 16px;
-            color: #6c757d;
-            padding: 60px;
-            background-color: #f8f9fa;
-            border-radius: 12px;
-            margin: 20px 0px;
-        """)
-        layout.addWidget(workout_info)
-        
-        layout.addStretch()
-        
-        return tab
-    
-    def create_body_measurements_tab(self):
-        """Create body measurements tracking tab"""
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; }")
-        
-        form_widget = QWidget()
-        form_layout = QVBoxLayout(form_widget)
-        
-        # Primary metrics
-        primary_group = QGroupBox("Primary Metrics")
-        primary_layout = QGridLayout()
-        
-        primary_layout.addWidget(QLabel("Weight:"), 0, 0)
-        self.body_weight = QDoubleSpinBox()
-        self.body_weight.setRange(30, 300)
-        self.body_weight.setSuffix(" kg")
-        self.body_weight.setDecimals(1)
-        primary_layout.addWidget(self.body_weight, 0, 1)
-        
-        primary_layout.addWidget(QLabel("Body Fat %:"), 1, 0)
-        self.body_bf = QDoubleSpinBox()
-        self.body_bf.setRange(3, 50)
-        self.body_bf.setSuffix(" %")
-        self.body_bf.setDecimals(1)
-        primary_layout.addWidget(self.body_bf, 1, 1)
-        
-        primary_layout.addWidget(QLabel("Muscle Mass:"), 2, 0)
-        self.body_muscle = QDoubleSpinBox()
-        self.body_muscle.setRange(0, 150)
-        self.body_muscle.setSuffix(" kg")
-        self.body_muscle.setDecimals(1)
-        primary_layout.addWidget(self.body_muscle, 2, 1)
-        
-        primary_group.setLayout(primary_layout)
-        form_layout.addWidget(primary_group)
-        
-        # Circumferences
-        circum_group = QGroupBox("Circumference Measurements (cm)")
-        circum_layout = QGridLayout()
-        
-        self.body_waist = QDoubleSpinBox()
-        self.body_waist.setRange(0, 200)
-        self.body_waist.setSuffix(" cm")
-        self.body_waist.setDecimals(1)
-        circum_layout.addWidget(QLabel("Waist:"), 0, 0)
-        circum_layout.addWidget(self.body_waist, 0, 1)
-        
-        self.body_chest = QDoubleSpinBox()
-        self.body_chest.setRange(0, 200)
-        self.body_chest.setSuffix(" cm")
-        self.body_chest.setDecimals(1)
-        circum_layout.addWidget(QLabel("Chest:"), 1, 0)
-        circum_layout.addWidget(self.body_chest, 1, 1)
-        
-        self.body_arm = QDoubleSpinBox()
-        self.body_arm.setRange(0, 100)
-        self.body_arm.setSuffix(" cm")
-        self.body_arm.setDecimals(1)
-        circum_layout.addWidget(QLabel("Arm:"), 2, 0)
-        circum_layout.addWidget(self.body_arm, 2, 1)
-        
-        self.body_forearm = QDoubleSpinBox()
-        self.body_forearm.setRange(0, 100)
-        self.body_forearm.setSuffix(" cm")
-        self.body_forearm.setDecimals(1)
-        circum_layout.addWidget(QLabel("Forearm:"), 3, 0)
-        circum_layout.addWidget(self.body_forearm, 3, 1)
-        
-        self.body_thigh = QDoubleSpinBox()
-        self.body_thigh.setRange(0, 150)
-        self.body_thigh.setSuffix(" cm")
-        self.body_thigh.setDecimals(1)
-        circum_layout.addWidget(QLabel("Thigh:"), 4, 0)
-        circum_layout.addWidget(self.body_thigh, 4, 1)
-        
-        self.body_calf = QDoubleSpinBox()
-        self.body_calf.setRange(0, 100)
-        self.body_calf.setSuffix(" cm")
-        self.body_calf.setDecimals(1)
-        circum_layout.addWidget(QLabel("Calf:"), 5, 0)
-        circum_layout.addWidget(self.body_calf, 5, 1)
-        
-        self.body_neck = QDoubleSpinBox()
-        self.body_neck.setRange(0, 100)
-        self.body_neck.setSuffix(" cm")
-        self.body_neck.setDecimals(1)
-        circum_layout.addWidget(QLabel("Neck:"), 6, 0)
-        circum_layout.addWidget(self.body_neck, 6, 1)
-        
-        circum_group.setLayout(circum_layout)
-        form_layout.addWidget(circum_group)
-        
-        # Notes
-        form_layout.addWidget(QLabel("Notes:"))
-        self.body_notes = QTextEdit()
-        self.body_notes.setMaximumHeight(100)
-        self.body_notes.setPlaceholderText("Measurement notes...")
-        form_layout.addWidget(self.body_notes)
-        
-        # Save button
-        save_body_btn = QPushButton("Save Body Measurements")
-        save_body_btn.clicked.connect(self.save_body_measurements)
-        save_body_btn.setMinimumHeight(50)
-        save_body_btn.setStyleSheet("background-color: #28a745; font-size: 16px; font-weight: bold;")
-        form_layout.addWidget(save_body_btn)
-        
-        scroll.setWidget(form_widget)
-        layout.addWidget(scroll)
-        
-        return tab
+
+    # ==========================================
+    # CRITICAL: DATA HANDLING METHODS
+    # ==========================================
+    def refresh_data(self):
+        """CRITICAL FIX: Called by MainWindow to refresh data when tab is opened"""
+        self.load_existing_data()
 
     def load_existing_data(self):
-        """Load existing tracking data for selected date and populate forms"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            return
-
-        user_id = current_user['id']
+        """Loads Diet, Sleep, and Workouts for selected date"""
+        self.clear_all_forms() # Reset first
+        
+        user = self.user_manager.get_current_user()
+        if not user: return
         date_str = self.selected_date.strftime('%Y-%m-%d')
+        cursor = self.db.conn.cursor()
         
-        try:
-            # Clear all forms first
-            self.clear_all_forms()
+        # 1. Load Diet
+        row = cursor.execute("SELECT * FROM diet_entries WHERE user_id=? AND entry_date=?", (user['id'], date_str)).fetchone()
+        if row:
+            self.diet_calories.setValue(row['total_calories'] or 0)
+            self.diet_protein.setValue(row['protein_g'] or 0)
+            self.diet_carbs.setValue(row['carbs_g'] or 0)
+            self.diet_fats.setValue(row['fats_g'] or 0)
             
-            # Load diet data
-            cursor = self.db.conn.cursor()
-            diet_entry = cursor.execute(
-                "SELECT * FROM diet_entries WHERE user_id = ? AND entry_date = ?",
-                (user_id, date_str)
-            ).fetchone()
-            
-            if diet_entry:
-                diet_data = dict(diet_entry)
-                self.populate_diet_form(diet_data)
-            
-            # Load sleep data  
-            sleep_entry = cursor.execute(
-                "SELECT * FROM sleep_entries WHERE user_id = ? AND entry_date = ?", 
-                (user_id, date_str)
-            ).fetchone()
-            
-            if sleep_entry:
-                sleep_data = dict(sleep_entry)
-                self.populate_sleep_form(sleep_data)
-                
-            # Load body measurements
-            body_entry = cursor.execute(
-                "SELECT * FROM body_measurements WHERE user_id = ? AND measurement_date = ?",
-                (user_id, date_str) 
-            ).fetchone()
-            
-            if body_entry:
-                body_data = dict(body_entry)
-                self.populate_body_form(body_data)
-                
-        except Exception as e:
-            print(f"Error loading existing data: {e}")
+            # Load Micros from JSON if present
+            if row['notes'] and "MICROS_DATA::" in row['notes']:
+                try:
+                    data = json.loads(row['notes'].split("MICROS_DATA::")[1])
+                    for k, v in data.items():
+                        if k in self.micro_inputs: self.micro_inputs[k].setValue(v)
+                except: pass
 
-    def clear_all_forms(self):
-        """Clear all input forms"""
-        # Clear diet form
-        self.diet_calories.setValue(0)
-        self.diet_protein.setValue(0)
-        self.diet_carbs.setValue(0)
-        self.diet_fats.setValue(0)
-        self.diet_fiber.setValue(0)
-        self.diet_sugar.setValue(0)
-        self.diet_sodium.setValue(0)
-        self.diet_potassium.setValue(0)
-        self.diet_calcium.setValue(0)
-        self.diet_iron.setValue(0)
-        self.diet_vitamin_d.setValue(0)
-        self.diet_vitamin_c.setValue(0)
-        self.diet_b12.setValue(0)
-        self.diet_hydration.setValue(0)
-        self.diet_meals.setValue(0)
-        self.diet_protein_per_kg.setValue(0)
-        self.diet_pre_workout_carbs.setValue(0)
-        self.diet_post_workout_carbs.setValue(0)
-        self.diet_creatine.setValue(0)
-        self.diet_notes.clear()
-        
-        # Clear sleep form
-        self.sleep_bedtime.setTime(self.sleep_bedtime.minimumTime())
-        self.sleep_wake_time.setTime(self.sleep_wake_time.minimumTime())
-        self.sleep_duration.setValue(0)
-        self.sleep_quality.setValue(1)
-        self.sleep_fall_asleep.setValue(0)
-        self.sleep_awakenings.setValue(0)
-        self.sleep_deep.setValue(0)
-        self.sleep_rem.setValue(0)
-        self.sleep_caffeine_cutoff.setTime(self.sleep_caffeine_cutoff.minimumTime())
-        self.sleep_screen_time.setValue(0)
-        self.sleep_temperature.setValue(0)
-        self.sleep_env_rating.setValue(0)
-        self.sleep_notes.clear()
-        
-        # Clear body form
-        self.body_weight.setValue(0)
-        self.body_bf.setValue(0)
-        self.body_muscle.setValue(0)
-        self.body_waist.setValue(0)
-        self.body_chest.setValue(0)
-        self.body_arm.setValue(0)
-        self.body_forearm.setValue(0)
-        self.body_thigh.setValue(0)
-        self.body_calf.setValue(0)
-        self.body_neck.setValue(0)
-        self.body_notes.clear()
+        # 2. Load Sleep
+        row = cursor.execute("SELECT * FROM sleep_entries WHERE user_id=? AND entry_date=?", (user['id'], date_str)).fetchone()
+        if row:
+            self.sleep_duration.setValue(row['sleep_duration_hours'] or 0)
+            self.sleep_quality.setValue(row['sleep_quality'] or 0)
 
-    def populate_diet_form(self, data):
-        """Populate diet form with existing data"""
-        self.diet_calories.setValue(data.get('total_calories', 0))
-        self.diet_protein.setValue(data.get('protein_g', 0))
-        self.diet_carbs.setValue(data.get('carbs_g', 0))
-        self.diet_fats.setValue(data.get('fat_g', 0))
-        self.diet_fiber.setValue(data.get('fiber_g') or 0)
-        self.diet_sugar.setValue(data.get('sugar_g') or 0)
-        self.diet_sodium.setValue(data.get('sodium_mg') or 0)
-        self.diet_potassium.setValue(data.get('potassium_mg') or 0)
-        self.diet_calcium.setValue(data.get('calcium_mg') or 0)
-        self.diet_iron.setValue(data.get('iron_mg') or 0)
-        self.diet_vitamin_d.setValue(data.get('vitamin_d_ug') or 0)
-        self.diet_vitamin_c.setValue(data.get('vitamin_c_mg') or 0)
-        self.diet_b12.setValue(data.get('b12_ug') or 0)
-        self.diet_hydration.setValue(data.get('hydration_liters') or 0)
-        self.diet_meals.setValue(data.get('meals_count') or 0)
-        self.diet_protein_per_kg.setValue(data.get('protein_per_kg') or 0)
-        self.diet_pre_workout_carbs.setValue(data.get('pre_workout_carbs_g') or 0)
-        self.diet_post_workout_carbs.setValue(data.get('post_workout_carbs_g') or 0)
-        self.diet_creatine.setValue(data.get('creatine_g') or 0)
-        if data.get('notes'):
-            self.diet_notes.setPlainText(data['notes'])
-
-    def populate_sleep_form(self, data):
-        """Populate sleep form with existing data"""  
-        if data.get('bedtime'):
-            time_obj = QTime.fromString(data['bedtime'], "HH:mm")
-            self.sleep_bedtime.setTime(time_obj)
-        if data.get('wake_time'):
-            time_obj = QTime.fromString(data['wake_time'], "HH:mm") 
-            self.sleep_wake_time.setTime(time_obj)
+        # 3. Load Workouts (Populate Table)
+        session = cursor.execute("SELECT id FROM workout_sessions WHERE user_id=? AND session_date=?", (user['id'], date_str)).fetchone()
+        if session:
+            exercises = cursor.execute("""
+                SELECT ep.*, e.name 
+                FROM exercise_performances ep 
+                JOIN exercises e ON ep.exercise_id = e.id 
+                WHERE workout_session_id=?
+            """, (session['id'],)).fetchall()
             
-        self.sleep_duration.setValue(data.get('sleep_duration_hours', 0))
-        self.sleep_quality.setValue(data.get('sleep_quality', 1))
-        self.sleep_fall_asleep.setValue(data.get('time_to_fall_asleep_minutes') or 0)
-        self.sleep_awakenings.setValue(data.get('awakenings_count') or 0)
-        self.sleep_deep.setValue(data.get('deep_sleep_hours') or 0)
-        self.sleep_rem.setValue(data.get('rem_sleep_hours') or 0)
-        
-        if data.get('caffeine_cutoff_time'):
-            time_obj = QTime.fromString(data['caffeine_cutoff_time'], "HH:mm")
-            self.sleep_caffeine_cutoff.setTime(time_obj)
-            
-        self.sleep_screen_time.setValue(data.get('screen_time_before_bed_minutes') or 0)
-        self.sleep_temperature.setValue(data.get('room_temperature_celsius') or 0) 
-        self.sleep_env_rating.setValue(data.get('sleep_environment_rating') or 0)
-        
-        if data.get('notes'):
-            self.sleep_notes.setPlainText(data['notes'])
-
-    def populate_body_form(self, data):
-        """Populate body measurements form with existing data"""
-        self.body_weight.setValue(data.get('weight_kg') or 0)
-        self.body_bf.setValue(data.get('body_fat_percentage') or 0)
-        self.body_muscle.setValue(data.get('muscle_mass_kg') or 0)
-        self.body_waist.setValue(data.get('waist_cm') or 0)
-        self.body_chest.setValue(data.get('chest_cm') or 0)
-        self.body_arm.setValue(data.get('arm_cm') or 0)
-        self.body_forearm.setValue(data.get('forearm_cm') or 0)
-        self.body_thigh.setValue(data.get('thigh_cm') or 0)
-        self.body_calf.setValue(data.get('calf_cm') or 0)
-        self.body_neck.setValue(data.get('neck_cm') or 0)
-        
-        if data.get('notes'):
-            self.body_notes.setPlainText(data['notes'])
-
-    # ALSO ADD THIS FIXED save_diet_entry method (with the comma fix):
+            for ex in exercises:
+                self._add_row_to_table(ex['name'], ex['weight_kg'], ex['reps_completed'], ex['rir_actual'], False)
 
     def save_diet_entry(self):
-        """Save diet entry to database"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            QMessageBox.warning(self, "Error", "No user selected.")
-            return
+        user = self.user_manager.get_current_user()
+        if not user: return
+        
+        # Pack micros
+        micros = {k: v.value() for k, v in self.micro_inputs.items() if v.value() > 0}
+        note = f"MICROS_DATA::{json.dumps(micros)}"
         
         try:
-            entry_id = self.db.save_diet_entry(
-                user_id=current_user['id'],
-                entry_date=self.selected_date,
+            self.db.save_diet_entry(
+                user['id'], self.selected_date,
                 total_calories=self.diet_calories.value(),
                 protein_g=self.diet_protein.value(),
                 carbs_g=self.diet_carbs.value(),
                 fat_g=self.diet_fats.value(),
-                fiber_g=self.diet_fiber.value() if self.diet_fiber.value() > 0 else None,
-                sugar_g=self.diet_sugar.value() if self.diet_sugar.value() > 0 else None,
-                sodium_mg=self.diet_sodium.value() if self.diet_sodium.value() > 0 else None,
-                potassium_mg=self.diet_potassium.value() if self.diet_potassium.value() > 0 else None,
-                calcium_mg=self.diet_calcium.value() if self.diet_calcium.value() > 0 else None,
-                iron_mg=self.diet_iron.value() if self.diet_iron.value() > 0 else None,  # <-- ADD COMMA HERE
-                vitamin_d_ug=self.diet_vitamin_d.value() if self.diet_vitamin_d.value() > 0 else None,
-                vitamin_c_mg=self.diet_vitamin_c.value() if self.diet_vitamin_c.value() > 0 else None,
-                b12_ug=self.diet_b12.value() if self.diet_b12.value() > 0 else None,
-                hydration_liters=self.diet_hydration.value() if self.diet_hydration.value() > 0 else None,
-                meals_count=self.diet_meals.value() if self.diet_meals.value() > 0 else None,
-                protein_per_kg=self.diet_protein_per_kg.value() if self.diet_protein_per_kg.value() > 0 else None,
-                pre_workout_carbs_g=self.diet_pre_workout_carbs.value() if self.diet_pre_workout_carbs.value() > 0 else None,
-                post_workout_carbs_g=self.diet_post_workout_carbs.value() if self.diet_post_workout_carbs.value() > 0 else None,
-                creatine_g=self.diet_creatine.value() if self.diet_creatine.value() > 0 else None,
-                notes=self.diet_notes.toPlainText() if self.diet_notes.toPlainText() else None
+                notes=note
             )
-            
-            QMessageBox.information(self, "Success", f"Diet entry saved for {self.selected_date.strftime('%B %d, %Y')}!")
-            
+            QMessageBox.information(self, "Saved", "Nutrition Logged Successfully")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save diet entry: {str(e)}")
-        # Event handlers
-        def on_date_selected(self, qdate):
-            """Handle calendar date selection"""
-            self.selected_date = qdate.toPyDate()
-            self.date_info_label.setText(f"Selected: {self.selected_date.strftime('%B %d, %Y')}")
-            self.load_existing_data()
+            QMessageBox.critical(self, "Error", str(e))
+
+    def save_workout_session(self):
+        if not self.current_session_sets: return
+        user = self.user_manager.get_current_user()
         
-        def jump_to_today(self):
-            """Jump calendar to today"""
-            self.calendar.setSelectedDate(QDate.currentDate())
-            self.selected_date = date.today()
-            self.date_info_label.setText(f"Selected: {self.selected_date.strftime('%B %d, %Y')}")
-            self.load_existing_data()
-        
-        def load_existing_data(self):
-            """Load existing tracking data for selected date"""
-            pass
-        
-        def save_diet_entry(self):
-            """Save diet entry to database"""
-            current_user = self.user_manager.get_current_user()
-            if not current_user:
-                QMessageBox.warning(self, "Error", "No user selected.")
-                return
-            
-            try:
-                entry_id = self.db.save_diet_entry(
-                    user_id=current_user['id'],
-                    entry_date=self.selected_date,
-                    total_calories=self.diet_calories.value(),
-                    protein_g=self.diet_protein.value(),
-                    carbs_g=self.diet_carbs.value(),
-                    fat_g=self.diet_fats.value(),
-                    fiber_g=self.diet_fiber.value() if self.diet_fiber.value() > 0 else None,
-                    sugar_g=self.diet_sugar.value() if self.diet_sugar.value() > 0 else None,
-                    sodium_mg=self.diet_sodium.value() if self.diet_sodium.value() > 0 else None,
-                    potassium_mg=self.diet_potassium.value() if self.diet_potassium.value() > 0 else None,
-                    calcium_mg=self.diet_calcium.value() if self.diet_calcium.value() > 0 else None,
-                    iron_mg=self.diet_iron.value() if self.diet_iron.value() > 0 else None,
-                    vitamin_d_ug=self.diet_vitamin_d.value() if self.diet_vitamin_d.value() > 0 else None,
-                    vitamin_c_mg=self.diet_vitamin_c.value() if self.diet_vitamin_c.value() > 0 else None,
-                    b12_ug=self.diet_b12.value() if self.diet_b12.value() > 0 else None,
-                    hydration_liters=self.diet_hydration.value() if self.diet_hydration.value() > 0 else None,
-                    meals_count=self.diet_meals.value() if self.diet_meals.value() > 0 else None,
-                    protein_per_kg=self.diet_protein_per_kg.value() if self.diet_protein_per_kg.value() > 0 else None,
-                    pre_workout_carbs_g=self.diet_pre_workout_carbs.value() if self.diet_pre_workout_carbs.value() > 0 else None,
-                    post_workout_carbs_g=self.diet_post_workout_carbs.value() if self.diet_post_workout_carbs.value() > 0 else None,
-                    creatine_g=self.diet_creatine.value() if self.diet_creatine.value() > 0 else None,
-                    notes=self.diet_notes.toPlainText() if self.diet_notes.toPlainText() else None
+        try:
+            sid = self.db.create_workout_session(user['id'], self.selected_date, notes="v3 Log")
+            for i, s in enumerate(self.current_session_sets):
+                self.db.add_exercise_performance(
+                    sid, s['id'], i+1, s['w'], s['r'], s['rir']
                 )
-                
-                QMessageBox.information(self, "Success", f"Diet entry saved for {self.selected_date.strftime('%B %d, %Y')}!")
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save diet entry: {str(e)}")
-        
+            QMessageBox.information(self, "Saved", "Workout Logged Successfully")
+            self.current_session_sets = [] # Clear memory
+            # Don't clear table immediately so user can see what they just saved
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
     def save_sleep_entry(self):
-        """Save sleep entry to database"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            QMessageBox.warning(self, "Error", "No user selected.")
-            return
-        
+        user = self.user_manager.get_current_user()
         try:
-            entry_id = self.db.save_sleep_entry(
-                user_id=current_user['id'],
-                entry_date=self.selected_date,
-                bedtime=self.sleep_bedtime.time().toString("HH:mm") if self.sleep_bedtime.time().isValid() else None,
-                wake_time=self.sleep_waketime.time().toString("HH:mm") if self.sleep_waketime.time().isValid() else None,
+            self.db.save_sleep_entry(
+                user['id'], self.selected_date,
                 sleep_duration_hours=self.sleep_duration.value(),
-                sleep_quality=self.sleep_quality.value(),
-                time_to_fall_asleep_minutes=self.sleep_fall_asleep.value() if self.sleep_fall_asleep.value() > 0 else None,
-                awakenings_count=self.sleep_awakenings.value() if self.sleep_awakenings.value() > 0 else None,
-                deep_sleep_hours=self.sleep_deep.value() if self.sleep_deep.value() > 0 else None,
-                rem_sleep_hours=self.sleep_rem.value() if self.sleep_rem.value() > 0 else None,
-                caffeine_cutoff_time=self.sleep_caffeine_cutoff.time().toString("HH:mm") if self.sleep_caffeine_cutoff.time().isValid() else None,
-                screen_time_before_bed_minutes=self.sleep_screen_time.value() if self.sleep_screen_time.value() > 0 else None,
-                room_temperature_celsius=self.sleep_temperature.value() if self.sleep_temperature.value() > 0 else None,
-                sleep_environment_rating=self.sleep_env_rating.value() if self.sleep_env_rating.value() > 0 else None,
-                notes=self.sleep_notes.toPlainText() if self.sleep_notes.toPlainText() else None
+                sleep_quality=self.sleep_quality.value()
             )
-            
-            QMessageBox.information(self, "Success", f"Sleep entry saved for {self.selected_date.strftime('%B %d, %Y')}!")
-            
+            QMessageBox.information(self, "Saved", "Sleep Data Logged")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save sleep entry: {str(e)}")
-    
-    def save_body_measurements(self):
-        """Save body measurements to database"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            QMessageBox.warning(self, "Error", "No user selected.")
-            return
-        
-        try:
-            entry_id = self.db.save_body_measurement(
-                user_id=current_user['id'],
-                measurement_date=self.selected_date,
-                weight_kg=self.body_weight.value() if self.body_weight.value() > 0 else None,
-                body_fat_percentage=self.body_bf.value() if self.body_bf.value() > 0 else None,
-                muscle_mass_kg=self.body_muscle.value() if self.body_muscle.value() > 0 else None,
-                waist_cm=self.body_waist.value() if self.body_waist.value() > 0 else None,
-                chest_cm=self.body_chest.value() if self.body_chest.value() > 0 else None,
-                arm_cm=self.body_arm.value() if self.body_arm.value() > 0 else None,
-                forearm_cm=self.body_forearm.value() if self.body_forearm.value() > 0 else None,
-                thigh_cm=self.body_thigh.value() if self.body_thigh.value() > 0 else None,
-                calf_cm=self.body_calf.value() if self.body_calf.value() > 0 else None,
-                neck_cm=self.body_neck.value() if self.body_neck.value() > 0 else None,
-                notes=self.body_notes.toPlainText() if self.body_notes.toPlainText() else None
-            )
-            
-            QMessageBox.information(self, "Success", f"Body measurements saved for {self.selected_date.strftime('%B %d, %Y')}!")
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save body measurements: {str(e)}")
-    
-    def open_workout_manager(self):
-        """Open workout template manager"""
-        QMessageBox.information(self, "Coming Soon", "Workout template manager will be implemented next!")
-    
-    def export_data(self):
-        """Export tracking data to CSV"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            QMessageBox.warning(self, "Error", "No user selected.")
-            return
-        
-        try:
-            filename, _ = QFileDialog.getSaveFileName(
-                self, "Export Tracking Data", 
-                f"hypertrophy_data_{current_user['username']}.csv",
-                "CSV files (*.csv)"
-            )
-            
-            if filename:
-                # Export logic here - placeholder
-                QMessageBox.information(self, "Success", f"Data exported to {filename}")
-                
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to export data: {str(e)}")
-    
-    def refresh_data(self):
-        """Refresh tracking data"""
-        self.load_existing_data()
-    def on_date_selected(self, qdate):
-        """Handle calendar date selection"""
-        self.selected_date = date(qdate.year(), qdate.month(), qdate.day())
-        self.date_info_label.setText(f"Selected: {self.selected_date.strftime('%B %d, %Y')}")
-        self.load_existing_data()
+            QMessageBox.critical(self, "Error", str(e))
 
-    def load_existing_data(self):
-        """Load existing tracking data for selected date and populate forms"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            return
+    # ==========================================
+    # UTILS
+    # ==========================================
+    def refresh_exercise_list(self):
+        self.exercise_combo.clear()
+        exs = self.db.get_all_exercises()
+        if exs:
+            for e in exs: self.exercise_combo.addItem(e['name'], e['id'])
+        else:
+            self.exercise_combo.addItem("Bench Press", 1)
 
-        user_id = current_user['id']
-        date_str = self.selected_date.strftime('%Y-%m-%d')
+    def add_set_to_list(self):
+        if not self.current_exercise_id:
+            QMessageBox.warning(self, "Selection", "Please select an exercise from the library first.")
+            return
+        w = self.weight_input.value()
+        r = self.reps_input.value()
         
-        try:
-            self.clear_all_forms()
-            
-            cursor = self.db.conn.cursor()
-            diet_entry = cursor.execute(
-                "SELECT * FROM diet_entries WHERE user_id = ? AND entry_date = ?",
-                (user_id, date_str)
-            ).fetchone()
-            
-            if diet_entry:
-                self.populate_diet_form(dict(diet_entry))
-            
-            sleep_entry = cursor.execute(
-                "SELECT * FROM sleep_entries WHERE user_id = ? AND entry_date = ?", 
-                (user_id, date_str)
-            ).fetchone()
-            
-            if sleep_entry:
-                self.populate_sleep_form(dict(sleep_entry))
-                
-            body_entry = cursor.execute(
-                "SELECT * FROM body_measurements WHERE user_id = ? AND measurement_date = ?",
-                (user_id, date_str) 
-            ).fetchone()
-            
-            if body_entry:
-                self.populate_body_form(dict(body_entry))
-                
-        except Exception as e:
-            print(f"Error loading existing data: {e}")
+        if w==0 and r==0: return
+        
+        uni = self.unilateral_check.isChecked()
+        name = self.lbl_selected_exercise.text()
+        ex_id = self.current_exercise_id
+        
+        self.current_session_sets.append({
+            'id': ex_id, 'w': w, 'r': r, 'rir': self.rir_input.value(), 'uni': uni
+        })
+        self._add_row_to_table(name, w, r, self.rir_input.value(), uni)
+
+    def _add_row_to_table(self, name, w, r, rir, uni):
+        row = self.sets_table.rowCount()
+        self.sets_table.insertRow(row)
+        self.sets_table.setItem(row, 0, QTableWidgetItem(name))
+        self.sets_table.setItem(row, 1, QTableWidgetItem(str(w)))
+        self.sets_table.setItem(row, 2, QTableWidgetItem(str(r)))
+        self.sets_table.setItem(row, 3, QTableWidgetItem(str(rir)))
+        self.sets_table.setItem(row, 4, QTableWidgetItem("Single" if uni else "Bi-lat"))
 
     def clear_all_forms(self):
-        """Clear all input forms"""
         self.diet_calories.setValue(0)
         self.diet_protein.setValue(0)
         self.diet_carbs.setValue(0)
         self.diet_fats.setValue(0)
-        self.diet_fiber.setValue(0)
-        self.diet_sugar.setValue(0)
-        self.diet_sodium.setValue(0)
-        self.diet_potassium.setValue(0)
-        self.diet_calcium.setValue(0)
-        self.diet_iron.setValue(0)
-        self.diet_vitamin_d.setValue(0)
-        self.diet_vitamin_c.setValue(0)
-        self.diet_b12.setValue(0)
-        self.diet_hydration.setValue(0)
-        self.diet_meals.setValue(0)
-        self.diet_protein_per_kg.setValue(0)
-        self.diet_pre_workout_carbs.setValue(0)
-        self.diet_post_workout_carbs.setValue(0)
-        self.diet_creatine.setValue(0)
-        self.diet_notes.clear()
-        
-        self.sleep_bedtime.setTime(self.sleep_bedtime.minimumTime())
-        self.sleep_waketime.setTime(self.sleep_waketime.minimumTime())
+        for w in self.micro_inputs.values(): w.setValue(0)
+        self.sets_table.setRowCount(0)
+        self.current_session_sets = []
         self.sleep_duration.setValue(0)
         self.sleep_quality.setValue(1)
-        self.sleep_fall_asleep.setValue(0)
-        self.sleep_awakenings.setValue(0)
-        self.sleep_deep.setValue(0)
-        self.sleep_rem.setValue(0)
-        self.sleep_caffeine_cutoff.setTime(self.sleep_caffeine_cutoff.minimumTime())
-        self.sleep_screen_time.setValue(0)
-        self.sleep_temperature.setValue(0)
-        self.sleep_env_rating.setValue(0)
-        self.sleep_notes.clear()
-        
-        self.body_weight.setValue(0)
-        self.body_bf.setValue(0)
-        self.body_muscle.setValue(0)
-        self.body_waist.setValue(0)
-        self.body_chest.setValue(0)
-        self.body_arm.setValue(0)
-        self.body_forearm.setValue(0)
-        self.body_thigh.setValue(0)
-        self.body_calf.setValue(0)
-        self.body_neck.setValue(0)
-        self.body_notes.clear()
 
-    def populate_diet_form(self, data):
-        """Populate diet form with existing data"""
-        self.diet_calories.setValue(data.get('total_calories', 0))
-        self.diet_protein.setValue(data.get('protein_g', 0))
-        self.diet_carbs.setValue(data.get('carbs_g', 0))
-        self.diet_fats.setValue(data.get('fat_g', 0))
-        self.diet_fiber.setValue(data.get('fiber_g') or 0)
-        self.diet_sugar.setValue(data.get('sugar_g') or 0)
-        self.diet_sodium.setValue(data.get('sodium_mg') or 0)
-        self.diet_potassium.setValue(data.get('potassium_mg') or 0)
-        self.diet_calcium.setValue(data.get('calcium_mg') or 0)
-        self.diet_iron.setValue(data.get('iron_mg') or 0)
-        self.diet_vitamin_d.setValue(data.get('vitamin_d_ug') or 0)
-        self.diet_vitamin_c.setValue(data.get('vitamin_c_mg') or 0)
-        self.diet_b12.setValue(data.get('b12_ug') or 0)
-        self.diet_hydration.setValue(data.get('hydration_liters') or 0)
-        self.diet_meals.setValue(data.get('meals_count') or 0)
-        self.diet_protein_per_kg.setValue(data.get('protein_per_kg') or 0)
-        self.diet_pre_workout_carbs.setValue(data.get('pre_workout_carbs_g') or 0)
-        self.diet_post_workout_carbs.setValue(data.get('post_workout_carbs_g') or 0)
-        self.diet_creatine.setValue(data.get('creatine_g') or 0)
-        if data.get('notes'):
-            self.diet_notes.setPlainText(data['notes'])
-
-    def populate_sleep_form(self, data):
-        """Populate sleep form with existing data"""  
-        if data.get('bedtime'):
-            time_obj = QTime.fromString(data['bedtime'], "HH:mm")
-            self.sleep_bedtime.setTime(time_obj)
-        if data.get('wake_time'):
-            time_obj = QTime.fromString(data['wake_time'], "HH:mm") 
-            self.sleep_waketime.setTime(time_obj)
-            
-        self.sleep_duration.setValue(data.get('sleep_duration_hours', 0))
-        self.sleep_quality.setValue(data.get('sleep_quality', 1))
-        self.sleep_fall_asleep.setValue(data.get('time_to_fall_asleep_minutes') or 0)
-        self.sleep_awakenings.setValue(data.get('awakenings_count') or 0)
-        self.sleep_deep.setValue(data.get('deep_sleep_hours') or 0)
-        self.sleep_rem.setValue(data.get('rem_sleep_hours') or 0)
-        
-        if data.get('caffeine_cutoff_time'):
-            time_obj = QTime.fromString(data['caffeine_cutoff_time'], "HH:mm")
-            self.sleep_caffeine_cutoff.setTime(time_obj)
-            
-        self.sleep_screen_time.setValue(data.get('screen_time_before_bed_minutes') or 0)
-        self.sleep_temperature.setValue(data.get('room_temperature_celsius') or 0) 
-        self.sleep_env_rating.setValue(data.get('sleep_environment_rating') or 0)
-        
-        if data.get('notes'):
-            self.sleep_notes.setPlainText(data['notes'])
-
-    def populate_body_form(self, data):
-        """Populate body measurements form with existing data"""
-        self.body_weight.setValue(data.get('weight_kg') or 0)
-        self.body_bf.setValue(data.get('body_fat_percentage') or 0)
-        self.body_muscle.setValue(data.get('muscle_mass_kg') or 0)
-        self.body_waist.setValue(data.get('waist_cm') or 0)
-        self.body_chest.setValue(data.get('chest_cm') or 0)
-        self.body_arm.setValue(data.get('arm_cm') or 0)
-        self.body_forearm.setValue(data.get('forearm_cm') or 0)
-        self.body_thigh.setValue(data.get('thigh_cm') or 0)
-        self.body_calf.setValue(data.get('calf_cm') or 0)
-        self.body_neck.setValue(data.get('neck_cm') or 0)
-        
-        if data.get('notes'):
-            self.body_notes.setPlainText(data['notes'])
-    def jump_to_today(self):
-        """Jump calendar to today's date"""
-        today = date.today()
-        qdate = QDate(today.year, today.month, today.day)
-        self.calendar.setSelectedDate(qdate)
-        self.selected_date = today
+    def on_date_selected(self):
+        self.selected_date = self.calendar.selectedDate().toPyDate()
+        self.date_info_label.setText(f"{self.selected_date.strftime('%A, %B %d')}")
         self.load_existing_data()
 
+    def jump_to_today(self):
+        self.calendar.setSelectedDate(QDate.currentDate())
+        self.on_date_selected()
+
+    # ==========================================
+    # AI PREDICTION
+    # ==========================================
     def on_predict_click(self):
-        if not ML_AVAILABLE or not self.ai_predictor:
-            QMessageBox.warning(self, "AI Unavailable", "ML Engine files missing.")
-            return
-
-        # 1. Get Context
-        current_exercise = self.workout_template_combo.currentText() # Or however you select exercise
-        # If your combo box says "-- Create New --", force a default for testing
-        if "Create" in current_exercise:
-            current_exercise = "Bench Press" 
-            
+        if not self.ai_predictor: return
+        ex_name = self.exercise_combo.currentText()
         user = self.user_manager.get_current_user()
-        if not user:
-            return
-
-        self.predict_btn.setText("⏳ AI Analyzing...")
-        self.predict_btn.setEnabled(False)
         
+        self.predict_btn.setText("⏳ Computing...")
         try:
-            # 2. Ask the Hybrid Brain
-            # It will auto-decide between Heuristic vs Deep Learning
-            result = self.ai_predictor.predict(user['id'], current_exercise)
-            
-            # 3. Show Results
-            self.show_prediction_results(current_exercise, result)
-            
+            result = self.ai_predictor.predict(user['id'], ex_name)
+            self.show_prediction_results(ex_name, result)
         except Exception as e:
-            QMessageBox.critical(self, "Prediction Failed", f"Error: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            QMessageBox.warning(self, "AI Error", str(e))
         finally:
-            self.predict_btn.setText("🤖 Predict Performance (AI)")
-            self.predict_btn.setEnabled(True)
+            self.predict_btn.setText("🧠 AI Trajectory Analysis")
+
     def show_prediction_results(self, exercise, result):
-        """Displays the AI report with a professional Matplotlib chart"""
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"AI Strategy: {exercise}")
-        dialog.setMinimumSize(700, 500)
-        dialog.setStyleSheet("background-color: #ffffff;")
-        
+        dialog.setWindowTitle(f"AI Analytics: {exercise}")
+        dialog.setMinimumSize(750, 600)
         layout = QVBoxLayout()
         
-        # 1. Header Section
-        header = QLabel(f"Strategy: {result['type']}")
-        header.setStyleSheet("font-size: 14px; color: #6c757d; font-weight: bold;")
-        layout.addWidget(header)
+        # Header
+        layout.addWidget(QLabel(f"Model: {result['type']}"))
+        outcome = QLabel(f"Forecast: {result['prediction'].upper()}")
+        outcome.setStyleSheet(f"font-size: 22px; font-weight: 800; color: {'#28a745' if 'LIKELY' in result['prediction'].upper() else '#dc3545'};")
+        layout.addWidget(outcome)
         
-        outcome_lbl = QLabel(f"Prediction: {result['prediction'].upper()}")
-        
-        # Color code the prediction
-        if "LIKELY" in result['prediction'].upper():
-            outcome_lbl.setStyleSheet("font-size: 24px; font-weight: bold; color: #28a745;") # Green
-        elif "POSSIBLE" in result['prediction'].upper():
-            outcome_lbl.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffc107;") # Orange
-        else:
-            outcome_lbl.setStyleSheet("font-size: 24px; font-weight: bold; color: #dc3545;") # Red
-            
-        layout.addWidget(outcome_lbl)
-        
-        # 2. The Matplotlib Graph
-        # Create the figure
-        fig = Figure(figsize=(5, 4), dpi=100)
+        # Graph
+        fig = Figure(figsize=(6, 4), dpi=100)
         canvas = FigureCanvas(fig)
         ax = fig.add_subplot(111)
         
-        # -- DATA SIMULATION FOR DEMO (Since we might be new users) --
-        # In a real scenario, you'd pass the actual history_y from the DB
-        current_weight = result.get('predicted_weight', 100) - 2.5 # Fake "current"
-        if not current_weight: current_weight = 50 # Fallback
+        user = self.user_manager.get_current_user()
+        history_df = self.db.get_user_workout_history_df(user['id'], exercise)
         
-        # Create a fake "Past 14 Sessions" line for context
-        history_x = np.arange(-13, 1) # Days -13 to 0
-        # Create a slight upward trend with noise
-        history_y = np.linspace(current_weight*0.9, current_weight, 14) + np.random.normal(0, 0.5, 14)
-        
-        # The AI Prediction point (Next Session = +1)
-        pred_x = [1] 
-        pred_y = [result['predicted_weight']] if result['predicted_weight'] else [current_weight]
-        uncertainty = result['uncertainty_range'] if result['uncertainty_range'] else 2.5
-        
-        # Plotting
-        # Past data (Blue line)
-        ax.plot(history_x, history_y, color='#007bff', linewidth=2, label='History', marker='o', markersize=4)
-        
-        # Dotted line connecting present to future
-        ax.plot([0, 1], [history_y[-1], pred_y[0]], color='#6c757d', linestyle=':', linewidth=1)
-        
-        # AI Prediction (Red Star with Error Bars)
-        # This visualizes the Bayesian Uncertainty!
-        ax.errorbar(pred_x, pred_y, yerr=uncertainty, fmt='*', color='#dc3545', 
-                   ecolor='#dc3545', elinewidth=2, capsize=5, markersize=15, label='AI Forecast')
-        
-        # Styling the chart
-        ax.set_title(f"{exercise} Strength Trajectory", fontsize=12, fontweight='bold')
-        ax.set_ylabel("Load (kg)")
-        ax.set_xlabel("Sessions (0 = Today)")
-        ax.grid(True, linestyle='--', alpha=0.5)
+        if not history_df.empty and len(history_df) > 1:
+            dates = range(len(history_df))
+            weights = history_df['weight_kg'].values
+            ax.plot(dates, weights, color='#007bff', linewidth=2, marker='o', label='History')
+            
+            last_x = dates[-1]
+            pred_y = result.get('predicted_weight') or weights[-1]
+            ax.plot([last_x, last_x+1], [weights[-1], pred_y], 'k--', alpha=0.5)
+            ax.plot(last_x+1, pred_y, 'r*', markersize=15, label='Forecast')
+        else:
+            ax.text(0.5, 0.5, "Insufficient Data for Trendline", ha='center')
+            
+        ax.grid(True, alpha=0.3)
         ax.legend()
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
         layout.addWidget(canvas)
         
-        # 3. Recommendations & Reason
-        info_frame = QFrame()
-        info_frame.setStyleSheet("background-color: #f8f9fa; border-radius: 8px; padding: 10px;")
-        info_layout = QVBoxLayout(info_frame)
+        # Info
+        layout.addWidget(QLabel(f"Recommendation: {result['recommendations']['rir']} RIR"))
+        layout.addWidget(QLabel(f"<i>{result['reason']}</i>"))
         
-        rec_label = QLabel(f"<b>Plan:</b> Target {result['recommendations']['rir']} • Rest {result['recommendations']['rest']}s")
-        reason_label = QLabel(f"<i>AI Logic: {result['reason']}</i>")
-        reason_label.setWordWrap(True)
-        
-        info_layout.addWidget(rec_label)
-        info_layout.addWidget(reason_label)
-        layout.addWidget(info_frame)
-        
-        # Close Button
-        btn = QPushButton("Accept Strategy")
+        btn = QPushButton("Close")
         btn.clicked.connect(dialog.accept)
-        btn.setStyleSheet("background-color: #6f42c1; color: white; font-weight: bold; padding: 12px; border-radius: 6px;")
         layout.addWidget(btn)
-        
         dialog.setLayout(layout)
         dialog.exec()
+
+    def open_exercise_library(self):
+        """Opens the advanced exercise selector"""
+        dialog = ExerciseLibraryDialog(self.db, self)
+        dialog.exercise_selected.connect(self.on_exercise_selected)
+        dialog.exec()
+
+    def on_exercise_selected(self, ex_id, name, is_unilateral):
+        """Callback when exercise is chosen from library"""
+        self.lbl_selected_exercise.setText(name)
+        self.current_exercise_id = ex_id
+        
+        # Auto-set the unilateral checkbox based on exercise capability
+        self.unilateral_check.setChecked(is_unilateral)
+        
+        # If it's unilateral, maybe prompt user or auto-adjust logic?
+        if is_unilateral:
+            self.unilateral_check.setText("Unilateral (One side) - Recommended")
+        else:
+            self.unilateral_check.setText("Unilateral (One side)")
