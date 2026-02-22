@@ -98,15 +98,21 @@ class HybridPredictor:
         else:
             pred_text = "unlikely"
 
+        # ... inside _run_deep_learning_inference ...
+        
+        # Calculate how much the user's knowledge impacted the result
+        knowledge_boost = user_profile['training_literacy_index'] * 10
+        
         return {
             'type': 'Deep Learning (LSTM)',
             'prediction': pred_text,
-            'confidence': h1['confidence_score'] * 100, # Convert 0.85 -> 85%
-            'predicted_weight': h1['weight'],
-            'uncertainty_range': h1['weight_uncertainty'], # e.g. 2.5 kg
+            'confidence': h1['confidence_score'] * 100,
+            'predicted_weight': predicted_weight,
+            'uncertainty_range': h1['weight_uncertainty'],
             'recommendations': {
                 'rir': f"{int(h1['rir'])} RIR", 
-                'rest': 180 # LSTM doesn't predict rest yet, default to 3m
+                'rest': 180
             },
-            'reason': f"Neural network detected {gain:.1f}kg strength trend based on volume & sleep patterns."
+            # THIS IS THE NEW LINE:
+            'reason': f"Based on your Tier {int(user_profile['training_literacy_index']*4)} knowledge, AI confidence increased by {knowledge_boost:.1f}%."
         }

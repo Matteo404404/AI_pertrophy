@@ -1,19 +1,18 @@
 """
-Scientific Hypertrophy Trainer - Assessment Interface
-Complete assessment system with tier selection, questions, and results
+Scientific Hypertrophy Trainer - Assessment Interface v2.1 (FIXED)
+- Fixed: Added missing 'clear_content' method
+- Features: Dark Theme, Detailed Results Review
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QFrame, QRadioButton, QProgressBar,
-                             QScrollArea, QButtonGroup, QMessageBox, QTextEdit)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont
-from datetime import datetime
-
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
+    QProgressBar, QButtonGroup, QMessageBox, QTextEdit, QScrollArea,
+    QGridLayout, QSizePolicy
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtGui import QFont, QCursor
 
 class AssessmentWidget(QWidget):
-    """Assessment interface with tier progression"""
-    
     assessment_completed = pyqtSignal(dict)
     
     def __init__(self, assessment_engine, user_manager):
@@ -21,601 +20,301 @@ class AssessmentWidget(QWidget):
         self.assessment_engine = assessment_engine
         self.user_manager = user_manager
         self.current_assessment = None
-        self.current_question = None
-        self.start_time = None
+        
         self.init_ui()
         self.refresh_tiers()
     
     def init_ui(self):
-        """Initialize assessment interface"""
-        # FORCE LIGHT THEME FOR ALL ELEMENTS
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #f8f9fa;
-                color: #1a1a1a;
-            }
-            QLabel {
-                color: #1a1a1a !important;
-                background-color: transparent !important;
-            }
-            QFrame {
-                background-color: #ffffff;
-                border: 2px solid #e9ecef;
-                border-radius: 12px;
-            }
-            QRadioButton {
-                color: #1a1a1a !important;
-            }
-            QTextEdit {
-                background-color: #ffffff;
-                color: #1a1a1a;
-                border: 2px solid #e9ecef;
-            }
-            QProgressBar {
-                background-color: #e9ecef;
-                border: none;
-                border-radius: 8px;
-                height: 10px;
-                text-align: center;
-                color: #ffffff;
-                font-weight: 600;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #667eea, stop:1 #764ba2);
-                border-radius: 8px;
-            }
-        """)
+        # Global Layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(30, 30, 30, 30)
+        self.main_layout.setSpacing(20)
         
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(40, 40, 40, 40)
+        # Header (Fixed at top)
+        self.header_frame = QFrame()
+        self.header_layout = QVBoxLayout(self.header_frame)
+        self.lbl_title = QLabel("KNOWLEDGE ASSESSMENT")
+        self.lbl_title.setStyleSheet("font-size: 24px; font-weight: 900; color: #89b4fa; letter-spacing: 2px;")
+        self.lbl_subtitle = QLabel("Validate your understanding of hypertrophy principles to unlock advanced tracking features.")
+        self.lbl_subtitle.setStyleSheet("color: #a6adc8; font-size: 14px;")
+        self.header_layout.addWidget(self.lbl_title)
+        self.header_layout.addWidget(self.lbl_subtitle)
+        self.main_layout.addWidget(self.header_frame)
         
-        # Header
-        self.create_header(main_layout)
+        # Dynamic Content Area
+        self.content_area = QFrame()
+        self.content_layout = QVBoxLayout(self.content_area)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.addWidget(self.content_area)
         
-        # Content stack
-        self.content_stack = QVBoxLayout()
-        main_layout.addLayout(self.content_stack)
-        
-        # Create different views
-        self.create_tier_selection_view()
-        self.create_question_view()
-        self.create_results_view()
-        
-        # Show tier selection by default
+        # Initialize with Tier Selection
         self.show_tier_selection()
-    
-    def create_header(self, parent_layout):
-        """Create assessment header"""
-        header_frame = QFrame()
-        header_frame.setStyleSheet("background-color: transparent; border: none;")
-        header_layout = QVBoxLayout(header_frame)
+
+    # ==========================================
+    # VIEW 1: TIER SELECTION
+    # ==========================================
+    def show_tier_selection(self):
+        self.clear_content()
+        self.lbl_title.setText("SELECT CLEARANCE LEVEL")
         
-        title = QLabel("Knowledge Assessment")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 32px; font-weight: bold; color: #667eea !important; margin-bottom: 10px;")
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none; background: transparent;")
         
-        subtitle = QLabel("Test your hypertrophy knowledge and unlock new tiers")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet("font-size: 16px; color: #6c757d !important; margin-bottom: 30px;")
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(20)
         
-        header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
-        parent_layout.addWidget(header_frame)
-    
-    def create_tier_selection_view(self):
-        """Create tier selection interface"""
-        self.tier_selection_widget = QWidget()
-        tier_layout = QVBoxLayout(self.tier_selection_widget)
+        # Get User Status
+        tier_status = self.user_manager.get_tier_status()
+        tiers = tier_status.get('tiers', [])
         
-        # Section title
-        section_title = QLabel("Select Assessment Tier")
-        section_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #1a1a1a !important; margin-bottom: 30px;")
-        tier_layout.addWidget(section_title)
+        descriptions = [
+            "Fundamentals: Volume, Frequency, and Progressive Overload basics.",
+            "Intermediate: Effective Reps, Length-Tension Relationships, and Fatigue Management.",
+            "Advanced: Mesocycles, MRV/MEV, and Resensitization Phases."
+        ]
         
-        # Tier cards container
-        self.tier_cards_layout = QVBoxLayout()
-        tier_layout.addLayout(self.tier_cards_layout)
-        tier_layout.addStretch()
-    
-    def create_question_view(self):
-        """Create question interface"""
-        self.question_widget = QWidget()
-        question_layout = QVBoxLayout(self.question_widget)
-        
-        # Progress section
-        progress_frame = QFrame()
-        progress_layout = QVBoxLayout(progress_frame)
-        
-        # Assessment title
-        self.assessment_title = QLabel("Tier 1: Fundamentals")
-        self.assessment_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #667eea !important; margin-bottom: 15px;")
-        progress_layout.addWidget(self.assessment_title)
-        
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        progress_layout.addWidget(self.progress_bar)
-        
-        # Progress text
-        self.progress_text = QLabel("Question 1 of 20")
-        self.progress_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_text.setStyleSheet("font-size: 14px; color: #6c757d !important; margin-top: 10px;")
-        progress_layout.addWidget(self.progress_text)
-        
-        question_layout.addWidget(progress_frame)
-        
-        # Question card
-        question_card = QFrame()
-        self.question_layout = QVBoxLayout(question_card)
-        
-        # Question text
-        self.question_text = QLabel()
-        self.question_text.setWordWrap(True)
-        self.question_text.setStyleSheet("font-size: 18px; font-weight: bold; color: #1a1a1a !important; margin-bottom: 15px; line-height: 1.5;")
-        self.question_layout.addWidget(self.question_text)
-        
-        # Question explanation
-        self.question_explanation = QLabel()
-        self.question_explanation.setWordWrap(True)
-        self.question_explanation.setStyleSheet("font-size: 14px; color: #6c757d !important; font-style: italic; margin-bottom: 25px;")
-        self.question_layout.addWidget(self.question_explanation)
-        
-        # Answer options
-        self.answer_group = QButtonGroup()
-        self.answer_buttons = []
-        self.answers_layout = QVBoxLayout()
-        self.question_layout.addLayout(self.answers_layout)
-        
-        question_layout.addWidget(question_card)
-        
-        # Navigation buttons
-        nav_layout = QHBoxLayout()
-        
-        self.pause_btn = QPushButton("⏸️ Pause")
-        self.pause_btn.clicked.connect(self.pause_assessment)
-        self.pause_btn.setStyleSheet("background-color: #6c757d; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;")
-        
-        self.quit_btn = QPushButton("❌ Quit Assessment")
-        self.quit_btn.clicked.connect(self.quit_assessment)
-        self.quit_btn.setStyleSheet("background-color: #dc3545; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;")
-        
-        nav_layout.addWidget(self.pause_btn)
-        nav_layout.addWidget(self.quit_btn)
-        nav_layout.addStretch()
-        
-        self.submit_btn = QPushButton("Submit Answer")
-        self.submit_btn.clicked.connect(self.submit_answer)
-        self.submit_btn.setMinimumHeight(50)
-        self.submit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 16px;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-            QPushButton:disabled {
-                background-color: #e9ecef;
-                color: #adb5bd;
-            }
-        """)
-        self.submit_btn.setEnabled(False)
-        
-        nav_layout.addWidget(self.submit_btn)
-        question_layout.addLayout(nav_layout)
-    
-    def create_results_view(self):
-        """Create results interface"""
-        self.results_widget = QWidget()
-        results_layout = QVBoxLayout(self.results_widget)
-        
-        results_card = QFrame()
-        self.results_layout = QVBoxLayout(results_card)
-        
-        # Results title
-        self.results_title = QLabel("Assessment Complete!")
-        self.results_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.results_title.setStyleSheet("font-size: 32px; font-weight: bold; color: #28a745 !important; margin-bottom: 30px;")
-        self.results_layout.addWidget(self.results_title)
-        
-        # Score display
-        self.score_label = QLabel()
-        self.score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.score_label.setStyleSheet("font-size: 48px; font-weight: bold; color: #667eea !important; margin-bottom: 20px;")
-        self.results_layout.addWidget(self.score_label)
-        
-        # Status message
-        self.status_message = QLabel()
-        self.status_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_message.setWordWrap(True)
-        self.status_message.setStyleSheet("font-size: 18px; color: #1a1a1a !important; margin-bottom: 30px; line-height: 1.5;")
-        self.results_layout.addWidget(self.status_message)
-        
-        # Detailed breakdown
-        self.breakdown_text = QTextEdit()
-        self.breakdown_text.setReadOnly(True)
-        self.breakdown_text.setMaximumHeight(200)
-        self.results_layout.addWidget(self.breakdown_text)
-        
-        # Action buttons
-        actions_layout = QHBoxLayout()
-        
-        self.back_to_tiers_btn = QPushButton("← Back to Tiers")
-        self.back_to_tiers_btn.clicked.connect(self.show_tier_selection)
-        self.back_to_tiers_btn.setStyleSheet("background-color: #6c757d; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;")
-        
-        self.view_learning_btn = QPushButton("📚 View Learning Center")
-        self.view_learning_btn.setStyleSheet("background-color: #667eea; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;")
-        
-        actions_layout.addWidget(self.back_to_tiers_btn)
-        actions_layout.addStretch()
-        actions_layout.addWidget(self.view_learning_btn)
-        
-        self.results_layout.addLayout(actions_layout)
-        results_layout.addWidget(results_card)
-        results_layout.addStretch()
-    
-    def create_tier_card(self, tier_level, tier_data, is_accessible, is_completed):
-        """Create individual tier selection card"""
+        for i, tier in enumerate(tiers):
+            desc = descriptions[i] if i < len(descriptions) else ""
+            card = self.create_tier_card(i, tier, desc)
+            layout.addWidget(card)
+            
+        layout.addStretch()
+        scroll.setWidget(container)
+        self.content_layout.addWidget(scroll)
+
+    def create_tier_card(self, level, data, desc):
         card = QFrame()
         
-        # Determine card styling based on status
-        if is_completed:
-            border_color = "#28a745"
-            bg_color = "#e8f5e9"
-            status_text = "✅ Completed"
-            status_color = "#28a745"
-        elif is_accessible:
-            border_color = "#667eea"
-            bg_color = "#ede7f6"
-            status_text = "🔓 Available"
-            status_color = "#667eea"
+        if data['completed']:
+            border_col = "#a6e3a1"
+            status_txt = "✅ COMPLETED"
+            bg_col = "rgba(166, 227, 161, 0.05)"
+            btn_txt = "Review Concepts"
+            btn_style = "background-color: #313244; color: #a6e3a1; border: 1px solid #a6e3a1;"
+        elif data['accessible']:
+            border_col = "#89b4fa"
+            status_txt = "🔓 AVAILABLE"
+            bg_col = "rgba(137, 180, 250, 0.1)"
+            btn_txt = "Start Assessment"
+            btn_style = "background-color: #89b4fa; color: #1e1e2e; font-weight: bold;"
         else:
-            border_color = "#e9ecef"
-            bg_color = "#f8f9fa"
-            status_text = "🔒 Locked"
-            status_color = "#6c757d"
-        
+            border_col = "#45475a"
+            status_txt = "🔒 LOCKED"
+            bg_col = "rgba(69, 71, 90, 0.3)"
+            btn_txt = "Locked"
+            btn_style = "background-color: transparent; color: #45475a; border: 1px solid #45475a;"
+
         card.setStyleSheet(f"""
             QFrame {{
-                background-color: {bg_color};
-                border: 2px solid {border_color};
+                background-color: {bg_col};
+                border: 1px solid {border_col};
                 border-radius: 12px;
-                padding: 25px;
-                margin: 10px 0px;
-                min-height: 120px;
-            }}
-            QFrame QLabel {{
-                color: #1a1a1a !important;
             }}
         """)
         
-        card_layout = QHBoxLayout(card)
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(20, 20, 20, 20)
         
-        # Left side - Tier info
         info_layout = QVBoxLayout()
+        title = QLabel(f"TIER {level + 1}: {data['name'].upper()}")
+        title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {border_col};")
+        description = QLabel(desc)
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #cdd6f4; margin-top: 5px;")
         
-        tier_title = QLabel(f"Tier {tier_level + 1}: {tier_data['title']}")
-        tier_title.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {status_color} !important; margin-bottom: 8px;")
+        info_layout.addWidget(title)
+        info_layout.addWidget(description)
+        layout.addLayout(info_layout, stretch=1)
         
-        tier_desc = QLabel(tier_data['description'])
-        tier_desc.setWordWrap(True)
-        tier_desc.setStyleSheet("font-size: 14px; color: #495057 !important; margin-bottom: 15px;")
-        
-        tier_details = QLabel(f"{tier_data['questions']} questions • {int(tier_data['passing_percentage'] * 100)}% to pass")
-        tier_details.setStyleSheet("font-size: 12px; color: #6c757d !important;")
-        
-        info_layout.addWidget(tier_title)
-        info_layout.addWidget(tier_desc)
-        info_layout.addWidget(tier_details)
-        info_layout.addStretch()
-        
-        card_layout.addLayout(info_layout)
-        card_layout.addStretch()
-        
-        # Right side - Status and action
         action_layout = QVBoxLayout()
-        action_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        status_lbl = QLabel(status_txt)
+        status_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        status_lbl.setStyleSheet(f"font-weight: bold; font-size: 12px; color: {border_col}; margin-bottom: 10px;")
         
-        status_label = QLabel(status_text)
-        status_label.setStyleSheet(f"""
-            background-color: {status_color};
-            color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 12px;
-        """)
-        status_label.setMaximumWidth(120)
-        action_layout.addWidget(status_label)
+        btn = QPushButton(btn_txt)
+        btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn.setStyleSheet(f"QPushButton {{ {btn_style} padding: 8px 20px; border-radius: 6px; }}")
         
-        if is_accessible and not is_completed:
-            start_btn = QPushButton("Start Assessment")
-            start_btn.clicked.connect(lambda: self.start_assessment(tier_level))
-            start_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {status_color};
-                    color: #ffffff;
-                    padding: 12px 20px;
-                    font-weight: bold;
-                    margin-top: 15px;
-                    border-radius: 6px;
-                }}
-            """)
-            action_layout.addWidget(start_btn)
-        elif is_completed:
-            retake_btn = QPushButton("View Results")
-            retake_btn.setStyleSheet("""
-                background-color: #6c757d;
-                color: #ffffff;
-                padding: 12px 20px;
-                font-weight: bold;
-                margin-top: 15px;
-                border-radius: 6px;
-            """)
-            action_layout.addWidget(retake_btn)
+        if data['accessible']:
+            btn.clicked.connect(lambda checked, l=level: self.start_assessment(l))
+        else:
+            btn.setEnabled(False)
+            
+        action_layout.addWidget(status_lbl)
+        action_layout.addWidget(btn)
+        layout.addLayout(action_layout)
         
-        card_layout.addLayout(action_layout)
         return card
-    
-    def refresh_tiers(self):
-        """Refresh tier selection display"""
-        while self.tier_cards_layout.count():
-            child = self.tier_cards_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-        
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            return
-        
-        tier_status = self.user_manager.get_tier_status()
-        
-        tier_data_map = {
-            0: {
-                'title': 'Fundamentals',
-                'description': 'Essential hypertrophy principles - mechanical tension, volume, frequency, and nutrition basics',
-                'questions': 20,
-                'passing_percentage': 0.8
-            },
-            1: {
-                'title': 'Intermediate',
-                'description': 'Advanced concepts - effective reps, volume distribution, muscle length relationships',
-                'questions': 20,
-                'passing_percentage': 0.8
-            },
-            2: {
-                'title': 'Advanced',
-                'description': 'Expert optimization - MRV, autoregulation, periodization, and regional hypertrophy',
-                'questions': 20,
-                'passing_percentage': 0.8
-            }
-        }
-        
-        tiers = tier_status.get('tiers', [])
-        for i, tier in enumerate(tiers):
-            tier_data = tier_data_map.get(i, {})
-            tier_card = self.create_tier_card(
-                i,
-                tier_data,
-                tier.get('accessible', False),
-                tier.get('completed', False)
-            )
-            self.tier_cards_layout.addWidget(tier_card)
-    
+
+    # ==========================================
+    # VIEW 2: ACTIVE QUESTION
+    # ==========================================
     def start_assessment(self, tier_level):
-        """Start assessment for specified tier"""
         try:
-            if not self.user_manager.can_access_tier(tier_level):
-                QMessageBox.warning(self, "Access Denied",
-                                    f"You must complete previous tiers to access Tier {tier_level + 1}.")
-                return
-            
-            assessment_info = self.assessment_engine.start_assessment(tier_level)
-            self.current_assessment = assessment_info
-            self.start_time = datetime.now()
-            
-            tier_names = ["Fundamentals", "Intermediate", "Advanced"]
-            self.assessment_title.setText(f"Tier {tier_level + 1}: {tier_names[tier_level]}")
-            
-            self.load_next_question()
-            self.show_question_view()
-            
+            info = self.assessment_engine.start_assessment(tier_level)
+            self.current_assessment = info
+            self.load_question_view()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to start assessment: {str(e)}")
-    
-    def load_next_question(self):
-        """Load the next question"""
+            QMessageBox.critical(self, "Error", str(e))
+
+    def load_question_view(self):
+        self.clear_content()
         question = self.assessment_engine.get_current_question()
+        
         if not question:
             self.finish_assessment()
             return
+
+        self.lbl_title.setText(f"TIER {self.current_assessment['tier_level'] + 1} EXAM")
         
-        self.current_question = question
+        progress = QProgressBar()
+        progress.setRange(0, question['total_questions'])
+        progress.setValue(question['question_number'] - 1)
+        progress.setStyleSheet("QProgressBar { background-color: #313244; border-radius: 4px; height: 8px; } QProgressBar::chunk { background-color: #89b4fa; border-radius: 4px; }")
+        self.content_layout.addWidget(progress)
         
-        self.progress_bar.setMaximum(question['total_questions'])
-        self.progress_bar.setValue(question['question_number'])
-        self.progress_text.setText(f"Question {question['question_number']} of {question['total_questions']}")
+        progress_lbl = QLabel(f"Question {question['question_number']} / {question['total_questions']}")
+        progress_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        progress_lbl.setStyleSheet("color: #a6adc8; font-weight: bold; margin-bottom: 20px;")
+        self.content_layout.addWidget(progress_lbl)
         
-        self.question_text.setText(question['question'])
-        self.question_explanation.setText(question.get('explanation', ''))
+        q_card = QFrame()
+        q_card.setStyleSheet("background-color: #262639; border-radius: 16px; padding: 20px;")
+        q_layout = QVBoxLayout(q_card)
         
-        # Clear previous answers
-        for btn in self.answer_buttons:
-            self.answer_group.removeButton(btn)
-            btn.setParent(None)
-        self.answer_buttons.clear()
+        q_text = QLabel(question['question'])
+        q_text.setWordWrap(True)
+        q_text.setStyleSheet("font-size: 22px; font-weight: bold; color: white; line-height: 1.4;")
+        q_layout.addWidget(q_text)
+        self.content_layout.addWidget(q_card)
+        self.content_layout.addSpacing(20)
         
-        # Create new answer options
+        self.btn_group = QButtonGroup()
+        self.btn_group.setExclusive(True)
+        
         for i, option in enumerate(question['options']):
-            radio_btn = QRadioButton(option['text'])
-            radio_btn.setStyleSheet("""
-                QRadioButton {
-                    font-size: 16px;
-                    padding: 15px;
-                    margin: 8px 0px;
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    color: #1a1a1a !important;
-                }
-                QRadioButton:hover {
-                    background-color: #e9ecef;
-                }
-                QRadioButton::indicator {
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 10px;
-                    border: 2px solid #dee2e6;
-                    background-color: #ffffff;
-                    margin-right: 15px;
-                }
-                QRadioButton::indicator:checked {
-                    border-color: #667eea;
-                    background-color: #667eea;
-                }
+            btn = QPushButton(option['text'])
+            btn.setCheckable(True)
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.setStyleSheet("""
+                QPushButton { background-color: #1e1e2e; border: 2px solid #313244; border-radius: 12px; padding: 20px; text-align: left; font-size: 16px; color: #cdd6f4; }
+                QPushButton:hover { border-color: #89b4fa; background-color: #262639; }
+                QPushButton:checked { background-color: #89b4fa; color: #1e1e2e; border-color: #89b4fa; font-weight: bold; }
             """)
-            radio_btn.toggled.connect(self.on_answer_selected)
-            self.answer_group.addButton(radio_btn, i)
-            self.answer_buttons.append(radio_btn)
-            self.answers_layout.addWidget(radio_btn)
-        
-        self.submit_btn.setEnabled(False)
-    
-    def on_answer_selected(self):
-        """Handle answer selection"""
-        self.submit_btn.setEnabled(True)
-    
-    def submit_answer(self):
-        """Submit the current answer"""
-        selected_btn = self.answer_group.checkedButton()
-        if not selected_btn:
-            return
-        
-        selected_text = selected_btn.text()
-        
-        try:
-            result = self.assessment_engine.submit_answer(selected_text)
-            if result['status'] == 'complete':
-                self.show_results(result['results'])
-            else:
-                self.load_next_question()
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to submit answer: {str(e)}")
-    
-    def pause_assessment(self):
-        """Pause the current assessment"""
-        reply = QMessageBox.question(
-            self, 'Pause Assessment',
-            'Do you want to pause this assessment?\nYou can resume later from where you left off.',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            self.show_tier_selection()
-    
-    def quit_assessment(self):
-        """Quit the current assessment"""
-        reply = QMessageBox.question(
-            self, 'Quit Assessment',
-            'Are you sure you want to quit this assessment?\nAll progress will be lost.',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            self.assessment_engine.reset()
-            self.show_tier_selection()
-    
-    def show_results(self, results):
-        """Display assessment results"""
-        score_text = f"{results['score']}/{results['total_questions']}"
-        percentage = results['percentage']
-        
-        self.score_label.setText(score_text)
-        
-        if results['passed']:
-            self.results_title.setText("🎉 Assessment Passed!")
-            self.results_title.setStyleSheet("font-size: 32px; font-weight: bold; color: #28a745 !important; margin-bottom: 30px;")
-            status_msg = f"Excellent! You scored {percentage:.1f}% ({score_text})\n"
-            if results.get('next_tier_unlocked'):
-                status_msg += "🚀 You've unlocked the next tier!"
-            else:
-                status_msg += "You've mastered this tier's concepts."
-        else:
-            self.results_title.setText("📚 Keep Learning!")
-            self.results_title.setStyleSheet("font-size: 32px; font-weight: bold; color: #ffc107 !important; margin-bottom: 30px;")
-            passing_score = results['passing_score']
-            status_msg = f"You scored {percentage:.1f}% ({score_text})\n"
-            status_msg += f"You need {passing_score} correct answers ({results['passing_percentage']:.0f}%) to pass.\n"
-            status_msg += "Review the concepts and try again!"
-        
-        self.status_message.setText(status_msg)
-        
-        wrong_answers = [ans for ans in results['answers'] if not ans['is_correct']]
-        breakdown_text = f"Assessment Summary:\n"
-        breakdown_text += f"• Correct: {results['score']} questions\n"
-        breakdown_text += f"• Incorrect: {len(wrong_answers)} questions\n"
-        breakdown_text += f"• Accuracy: {percentage:.1f}%\n\n"
-        
-        if wrong_answers:
-            breakdown_text += "Areas for improvement:\n"
-            concepts = {}
-            for ans in wrong_answers:
-                concept = self.categorize_question(ans['question_text'])
-                if concept not in concepts:
-                    concepts[concept] = []
-                concepts[concept].append(ans['question_text'][:60] + "...")
+            self.btn_group.addButton(btn)
+            self.content_layout.addWidget(btn)
             
-            for concept, questions in concepts.items():
-                breakdown_text += f"• {concept}: {len(questions)} questions\n"
+        self.content_layout.addStretch()
         
-        self.breakdown_text.setPlainText(breakdown_text)
-        self.assessment_completed.emit(results)
-        self.show_results_view()
-    
-    def categorize_question(self, question_text):
-        """Simple question categorization"""
-        text_lower = question_text.lower()
+        submit_btn = QPushButton("Submit Answer")
+        submit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        submit_btn.clicked.connect(self.submit_answer)
+        submit_btn.setStyleSheet("background-color: #a6e3a1; color: #1e1e2e; font-size: 16px; font-weight: bold; padding: 15px; border-radius: 8px;")
+        self.content_layout.addWidget(submit_btn)
+
+    def submit_answer(self):
+        btn = self.btn_group.checkedButton()
+        if not btn: return
         
-        if any(kw in text_lower for kw in ['volume', 'sets', 'mrv']):
-            return 'Training Volume'
-        elif any(kw in text_lower for kw in ['intensity', 'failure', 'rir']):
-            return 'Training Intensity'
-        elif any(kw in text_lower for kw in ['protein', 'nutrition', 'diet']):
-            return 'Nutrition'
-        elif any(kw in text_lower for kw in ['sleep', 'recovery']):
-            return 'Recovery & Sleep'
-        elif any(kw in text_lower for kw in ['frequency']):
-            return 'Training Frequency'
+        result = self.assessment_engine.submit_answer(btn.text())
+        if result['status'] == 'complete':
+            self.show_results(result['results'])
         else:
-            return 'General Concepts'
+            self.load_question_view()
+
+    # ==========================================
+    # VIEW 3: RESULTS (With Detailed Review)
+    # ==========================================
+    def show_results(self, results):
+        self.clear_content()
+        self.lbl_title.setText("ASSESSMENT DEBRIEF")
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none; background: transparent;")
+        
+        content_container = QWidget()
+        layout = QVBoxLayout(content_container)
+        layout.setSpacing(20)
+        
+        score_frame = QFrame()
+        score_frame.setStyleSheet("background-color: #262639; border-radius: 16px; border: 1px solid #313244;")
+        score_layout = QVBoxLayout(score_frame)
+        
+        score_lbl = QLabel(f"{results['score']} / {results['total_questions']}")
+        score_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        score_lbl.setStyleSheet("font-size: 48px; font-weight: 900; color: #fab387;")
+        score_layout.addWidget(score_lbl)
+        
+        pass_fail = "PASSED" if results['passed'] else "FAILED"
+        col = "#a6e3a1" if results['passed'] else "#f38ba8"
+        status_lbl = QLabel(pass_fail)
+        status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status_lbl.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {col}; letter-spacing: 4px;")
+        score_layout.addWidget(status_lbl)
+        
+        layout.addWidget(score_frame)
+        
+        # Breakdown
+        layout.addWidget(QLabel("QUESTION BREAKDOWN:"))
+        
+        for ans in results['answers']:
+            row = QFrame()
+            border_col = "#a6e3a1" if ans['is_correct'] else "#f38ba8"
+            row.setStyleSheet(f"QFrame {{ background-color: #1e1e2e; border-left: 4px solid {border_col}; border-radius: 4px; padding: 10px; }}")
+            r_layout = QVBoxLayout(row)
+            
+            q_lbl = QLabel(ans.get('question_text', 'Question'))
+            q_lbl.setWordWrap(True)
+            q_lbl.setStyleSheet("font-weight: bold; color: white; font-size: 14px;")
+            r_layout.addWidget(q_lbl)
+            
+            if ans['is_correct']:
+                res_lbl = QLabel(f"✅ Correct: {ans['selected_answer']}")
+                res_lbl.setStyleSheet("color: #a6e3a1;")
+                r_layout.addWidget(res_lbl)
+            else:
+                user_lbl = QLabel(f"❌ You said: {ans['selected_answer']}")
+                user_lbl.setStyleSheet("color: #f38ba8;")
+                corr_lbl = QLabel(f"✅ Correct: {ans['correct_answer']}")
+                corr_lbl.setStyleSheet("color: #a6e3a1;")
+                
+                exp_lbl = QLabel(f"💡 {ans.get('explanation', '')}")
+                exp_lbl.setWordWrap(True)
+                exp_lbl.setStyleSheet("color: #a6adc8; font-style: italic; margin-top: 5px;")
+                
+                r_layout.addWidget(user_lbl)
+                r_layout.addWidget(corr_lbl)
+                r_layout.addWidget(exp_lbl)
+                
+            layout.addWidget(row)
+
+        btn_layout = QHBoxLayout()
+        retry_btn = QPushButton("Retry / Back")
+        retry_btn.clicked.connect(self.show_tier_selection)
+        retry_btn.setStyleSheet("background-color: #313244; color: white; padding: 15px; border-radius: 8px;")
+        
+        btn_layout.addWidget(retry_btn)
+        layout.addLayout(btn_layout)
+        layout.addStretch()
+        
+        scroll.setWidget(content_container)
+        self.content_layout.addWidget(scroll)
+        
+        self.assessment_completed.emit(results)
+
+    # --- THE MISSING METHOD ---
+    def clear_content(self):
+        while self.content_layout.count():
+            child = self.content_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
+    def refresh_tiers(self):
+        self.show_tier_selection()
     
     def finish_assessment(self):
-        """Finish the assessment and show results"""
         results = self.assessment_engine.finish_assessment()
         self.show_results(results)
-    
-    def show_tier_selection(self):
-        """Show tier selection view"""
-        self.clear_content_stack()
-        self.content_stack.addWidget(self.tier_selection_widget)
-        self.refresh_tiers()
-    
-    def show_question_view(self):
-        """Show question view"""
-        self.clear_content_stack()
-        self.content_stack.addWidget(self.question_widget)
-    
-    def show_results_view(self):
-        """Show results view"""
-        self.clear_content_stack()
-        self.content_stack.addWidget(self.results_widget)
-    
-    def clear_content_stack(self):
-        """Clear content stack"""
-        while self.content_stack.count():
-            child = self.content_stack.takeAt(0)
-            if child.widget():
-                child.widget().setParent(None)

@@ -564,27 +564,50 @@ class DatabaseManager:
     
     def save_assessment_result(self, user_id, tier_level, score, total_questions, 
                                percentage, passed, answers):
-        """Save assessment results"""
+        """
+        Saves the main result AND the individual answers for the Learning Center.
+        """
         cursor = self.conn.cursor()
         
-        cursor.execute("""
-            INSERT INTO assessments 
-            (user_id, tier_level, score, total_questions, percentage, passed)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, tier_level, score, total_questions, percentage, passed))
-        
-        assessment_id = cursor.lastrowid
-        
-        for answer in answers:
+        try:
+            # 1. Save Main Assessment Record
             cursor.execute("""
-                INSERT INTO assessment_answers
-                (assessment_id, question_id, user_answer, correct_answer, is_correct)
-                VALUES (?, ?, ?, ?, ?)
-            """, (assessment_id, answer['question_id'], answer['user_answer'],
-                  answer['correct_answer'], answer['is_correct']))
-        
-        self.conn.commit()
-        return assessment_id
+                INSERT INTO assessments 
+                (user_id, tier_level, score, total_questions, percentage, passed)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, tier_level, score, total_questions, percentage, passed))
+            
+            assessment_id = cursor.lastrowid
+            
+            # 2. Save Individual Answers (The Missing Link)
+            for ans in answers:
+                # Map Engine keys to Database columns
+                # Engine uses 'selected_answer', DB uses 'user_answer'
+                q_id = ans.get('question_id', 'Unknown')
+                user_ans = ans.get('selected_answer') or ans.get('user_answer')
+                corr_ans = ans.get('correct_answer')
+                is_right = ans.get('is_correct')
+                q_text = ans.get('question_text', '') # Save text for context
+                
+                # We save the question text in the question_id column if needed, 
+                # or create a new column. For now, let's append text to ID to be safe
+                # or just save the ID if your logic relies on lookups. 
+                # Let's save the full text in a way we can retrieve it.
+                
+                cursor.execute("""
+                    INSERT INTO assessment_answers
+                    (assessment_id, question_id, user_answer, correct_answer, is_correct, question_text)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (assessment_id, q_id, user_ans, corr_ans, is_right, q_text))
+            
+            self.conn.commit()
+            print(f"✅ Saved Assessment {assessment_id} with {len(answers)} answer details.")
+            return assessment_id
+            
+        except Exception as e:
+            print(f"❌ DB Error saving assessment: {e}")
+            self.conn.rollback()
+            return None
     
     def get_user_assessments(self, user_id):
         """Get all assessments for a user"""

@@ -1,376 +1,249 @@
 """
-Scientific Hypertrophy Trainer - Dashboard Screen
-Main user dashboard with stats, quick actions, and progress overview
+Scientific Hypertrophy Trainer - Dashboard v3.0 (Pro HUD)
+- Dark Theme "Command Center"
+- Real-time Biometrics (Volume, Sleep, Calories)
+- Recent Activity Feed
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QGridLayout, QProgressBar,
-                             QScrollArea, QGroupBox)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QPixmap, QPainter, QColor
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
+    QGridLayout, QProgressBar, QScrollArea, QListWidget, QListWidgetItem
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from datetime import datetime, timedelta
 
-
 class DashboardWidget(QWidget):
-    """Main dashboard showing user stats and quick actions"""
-    
+    # Signals to switch tabs in MainWindow
     start_assessment = pyqtSignal()
     open_tracking = pyqtSignal()
     
     def __init__(self, user_manager, tracking_system):
         super().__init__()
         self.user_manager = user_manager
-        self.tracking_system = tracking_system
+        self.tracking_system = tracking_system # Note: We might access DB directly for speed
+        self.db = user_manager.db 
+        
         self.init_ui()
     
     def init_ui(self):
-        """Initialize dashboard interface"""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(25)
         
-        # Scrollable content
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; }")
+        # --- HEADER ---
+        self.header_frame = QFrame()
+        header_layout = QVBoxLayout(self.header_frame)
+        self.lbl_welcome = QLabel("Welcome back, Athlete")
+        self.lbl_welcome.setStyleSheet("font-size: 32px; font-weight: 900; color: #89b4fa; letter-spacing: 1px;")
         
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
+        self.lbl_date = QLabel(datetime.now().strftime("%A, %B %d"))
+        self.lbl_date.setStyleSheet("color: #a6adc8; font-size: 16px; font-weight: bold;")
         
-        # Header
-        self.create_header(content_layout)
+        header_layout.addWidget(self.lbl_welcome)
+        header_layout.addWidget(self.lbl_date)
+        main_layout.addWidget(self.header_frame)
         
-        # Stats overview
-        self.create_stats_overview(content_layout)
+        # --- STATS GRID (The HUD) ---
+        stats_container = QFrame()
+        stats_container.setStyleSheet("background-color: transparent;")
+        stats_layout = QHBoxLayout(stats_container)
+        stats_layout.setSpacing(20)
+        stats_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Quick actions
-        self.create_quick_actions(content_layout)
+        # 1. Knowledge Tier
+        self.card_tier = self.create_stat_card("KNOWLEDGE TIER", "1", "Novice", "#fab387")
+        stats_layout.addWidget(self.card_tier)
         
-        # Progress overview
-        self.create_progress_overview(content_layout)
+        # 2. Weekly Volume
+        self.card_volume = self.create_stat_card("WEEKLY VOLUME", "0", "Sets", "#a6e3a1")
+        stats_layout.addWidget(self.card_volume)
         
-        # Recent activity
-        self.create_recent_activity(content_layout)
+        # 3. Recovery Status
+        self.card_sleep = self.create_stat_card("AVG RECOVERY", "-", "Sleep Score", "#cba6f7")
+        stats_layout.addWidget(self.card_sleep)
         
-        content_layout.addStretch()
+        # 4. Nutrition
+        self.card_cals = self.create_stat_card("AVG INTAKE", "0", "kcal/day", "#f38ba8")
+        stats_layout.addWidget(self.card_cals)
         
-        scroll_area.setWidget(content_widget)
-        main_layout.addWidget(scroll_area)
-    
-    def create_header(self, parent_layout):
-        """Create dashboard header"""
-        header_frame = QFrame()
-        header_layout = QVBoxLayout(header_frame)
+        main_layout.addWidget(stats_container)
         
-        # Welcome message
-        self.welcome_label = QLabel("Welcome back!")
-        self.welcome_label.setStyleSheet("font-size: 32px; font-weight: bold; color: #667eea; margin-bottom: 10px;")
+        # --- LOWER SECTION (Split) ---
+        lower_container = QHBoxLayout()
+        lower_container.setSpacing(20)
         
-        self.status_label = QLabel("Ready to optimize your hypertrophy journey")
-        self.status_label.setStyleSheet("font-size: 16px; color: #6c757d; margin-bottom: 30px;")
+        # LEFT: Quick Actions
+        action_frame = QFrame()
+        action_frame.setStyleSheet("background-color: #181825; border-radius: 12px; border: 1px solid #313244;")
+        action_layout = QVBoxLayout(action_frame)
         
-        header_layout.addWidget(self.welcome_label)
-        header_layout.addWidget(self.status_label)
+        action_layout.addWidget(self.create_section_label("QUICK ACTIONS"))
         
-        parent_layout.addWidget(header_frame)
-    
-    def create_stats_overview(self, parent_layout):
-        """Create statistics overview cards"""
-        stats_frame = QFrame()
-        stats_layout = QVBoxLayout(stats_frame)
+        btn_log = QPushButton("📝  Log Workout")
+        btn_log.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_log.setStyleSheet("background-color: #89b4fa; color: #1e1e2e; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 14px;")
+        btn_log.clicked.connect(self.open_tracking.emit)
         
-        # Section title
-        title = QLabel("Progress Overview")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin-bottom: 20px;")
-        stats_layout.addWidget(title)
+        btn_diet = QPushButton("🥑  Track Nutrition")
+        btn_diet.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_diet.setStyleSheet("background-color: #313244; color: #cdd6f4; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 14px; border: 1px solid #45475a;")
+        btn_diet.clicked.connect(self.open_tracking.emit)
         
-        # Stats grid
-        stats_grid = QGridLayout()
+        btn_assess = QPushButton("🏆  Take Assessment")
+        btn_assess.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_assess.setStyleSheet("background-color: #313244; color: #cdd6f4; font-weight: bold; padding: 15px; border-radius: 8px; font-size: 14px; border: 1px solid #45475a;")
+        btn_assess.clicked.connect(self.start_assessment.emit)
         
-        # Create stat cards
-        self.stat_cards = {}
-        stat_names = [
-            ("current_tier", "Current Tier", "#667eea"),
-            ("questions_answered", "Questions Answered", "#28a745"),
-            ("accuracy", "Accuracy Rate", "#ffc107"),
-            ("assessments_passed", "Assessments Passed", "#dc3545")
-        ]
+        action_layout.addWidget(btn_log)
+        action_layout.addWidget(btn_diet)
+        action_layout.addWidget(btn_assess)
+        action_layout.addStretch()
         
-        for i, (key, label, color) in enumerate(stat_names):
-            card = self.create_stat_card("0", label, color)
-            self.stat_cards[key] = card
-            stats_grid.addWidget(card, i // 2, i % 2)
+        lower_container.addWidget(action_frame, 1)
         
-        stats_layout.addLayout(stats_grid)
-        parent_layout.addWidget(stats_frame)
-    
-    def create_stat_card(self, value, label, color):
-        """Create individual stat card"""
-        card_frame = QFrame()
-        card_frame.setStyleSheet(f"""
+        # RIGHT: Recent Activity Feed
+        feed_frame = QFrame()
+        feed_frame.setStyleSheet("background-color: #181825; border-radius: 12px; border: 1px solid #313244;")
+        feed_layout = QVBoxLayout(feed_frame)
+        
+        feed_layout.addWidget(self.create_section_label("RECENT ACTIVITY"))
+        
+        self.activity_list = QListWidget()
+        self.activity_list.setStyleSheet("""
+            QListWidget { background: transparent; border: none; outline: none; }
+            QListWidget::item { 
+                background-color: #1e1e2e; 
+                margin-bottom: 8px; 
+                padding: 12px; 
+                border-radius: 6px; 
+                color: #cdd6f4; 
+                border-left: 3px solid #45475a;
+            }
+        """)
+        feed_layout.addWidget(self.activity_list)
+        
+        lower_container.addWidget(feed_frame, 2)
+        main_layout.addLayout(lower_container)
+
+    # --- HELPERS ---
+    def create_stat_card(self, title, value, unit, color):
+        card = QFrame()
+        card.setStyleSheet(f"""
             QFrame {{
-                background-color: #ffffff;
-                border: 2px solid {color};
+                background-color: #181825;
                 border-radius: 12px;
-                padding: 20px;
-                margin: 10px;
-                min-height: 100px;
+                border: 1px solid #313244;
             }}
         """)
+        layout = QVBoxLayout(card)
         
-        card_layout = QVBoxLayout(card_frame)
-        card_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_title = QLabel(title)
+        lbl_title.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold; letter-spacing: 1px;")
         
-        value_label = QLabel(value)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        value_label.setStyleSheet(f"font-size: 36px; font-weight: bold; color: {color}; margin-bottom: 10px;")
+        lbl_val = QLabel(value)
+        lbl_val.setStyleSheet("color: white; font-size: 32px; font-weight: 900;")
         
-        desc_label = QLabel(label)
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc_label.setStyleSheet("font-size: 14px; color: #6c757d;")
+        lbl_unit = QLabel(unit)
+        lbl_unit.setStyleSheet("color: #a6adc8; font-size: 12px;")
         
-        card_layout.addWidget(value_label)
-        card_layout.addWidget(desc_label)
+        layout.addWidget(lbl_title)
+        layout.addWidget(lbl_val)
+        layout.addWidget(lbl_unit)
         
-        # Store references for updates
-        card_frame.value_label = value_label
-        card_frame.desc_label = desc_label
+        # Store ref to value label for updating
+        card.value_label = lbl_val
+        card.unit_label = lbl_unit
         
-        return card_frame
-    
-    def create_quick_actions(self, parent_layout):
-        """Create quick action buttons"""
-        actions_frame = QFrame()
-        actions_layout = QVBoxLayout(actions_frame)
-        
-        # Section title
-        title = QLabel("Quick Actions")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin-bottom: 20px;")
-        actions_layout.addWidget(title)
-        
-        # Action buttons grid
-        actions_grid = QGridLayout()
-        
-        # Assessment button
-        assess_btn = self.create_action_button(
-            "📋", "Take Assessment", 
-            "Test your hypertrophy knowledge and unlock new tiers",
-            "#667eea"
-        )
-        assess_btn.clicked.connect(self.start_assessment.emit)
-        actions_grid.addWidget(assess_btn, 0, 0)
-        
-        # Track diet button
-        diet_btn = self.create_action_button(
-            "🍽️", "Log Diet", 
-            "Track your nutrition for optimal muscle growth",
-            "#28a745"
-        )
-        diet_btn.clicked.connect(lambda: self.open_tracking.emit())
-        actions_grid.addWidget(diet_btn, 0, 1)
-        
-        # Track sleep button
-        sleep_btn = self.create_action_button(
-            "😴", "Log Sleep", 
-            "Monitor your recovery and sleep quality",
-            "#6f42c1"
-        )
-        sleep_btn.clicked.connect(lambda: self.open_tracking.emit())
-        actions_grid.addWidget(sleep_btn, 1, 0)
-        
-        # Log workout button
-        workout_btn = self.create_action_button(
-            "💪", "Log Workout", 
-            "Record your training sessions and progress",
-            "#fd7e14"
-        )
-        workout_btn.clicked.connect(lambda: self.open_tracking.emit())
-        actions_grid.addWidget(workout_btn, 1, 1)
-        
-        actions_layout.addLayout(actions_grid)
-        parent_layout.addWidget(actions_frame)
-    
-    def create_action_button(self, icon, title, description, color):
-        """Create quick action button"""
-        btn_frame = QFrame()
-        btn_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #ffffff;
-                border: 2px solid {color};
-                border-radius: 12px;
-                padding: 20px;
-                margin: 10px;
-                min-height: 120px;
-            }}
-            QFrame:hover {{
-                border-color: {color};
-                background-color: #f8f9fa;
-            }}
-        """)
-        
-        btn_layout = QVBoxLayout(btn_frame)
-        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Icon
-        icon_label = QLabel(icon)
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet(f"font-size: 32px; color: {color}; margin-bottom: 10px;")
-        
-        # Title
-        title_label = QLabel(title)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 5px;")
-        
-        # Description
-        desc_label = QLabel(description)
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("font-size: 12px; color: #6c757d;")
-        
-        btn_layout.addWidget(icon_label)
-        btn_layout.addWidget(title_label)
-        btn_layout.addWidget(desc_label)
-        
-        # Convert frame to button-like behavior
-        button = QPushButton()
-        button.setStyleSheet("QPushButton { background: transparent; border: none; }")
-        button.setLayout(btn_layout)
-        
-        return button
-    
-    def create_progress_overview(self, parent_layout):
-        """Create tier progress overview"""
-        progress_frame = QFrame()
-        progress_layout = QVBoxLayout(progress_frame)
-        
-        # Section title
-        title = QLabel("Knowledge Progression")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin-bottom: 20px;")
-        progress_layout.addWidget(title)
-        
-        # Tier progress bars
-        self.tier_progress_bars = {}
-        tier_names = ["Tier 1: Fundamentals", "Tier 2: Intermediate", "Tier 3: Advanced"]
-        tier_colors = ["#28a745", "#ffc107", "#dc3545"]
-        
-        for i, (name, color) in enumerate(zip(tier_names, tier_colors)):
-            tier_layout = QVBoxLayout()
-            
-            # Tier label
-            tier_label = QLabel(name)
-            tier_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {color}; margin-bottom: 5px;")
-            tier_layout.addWidget(tier_label)
-            
-            # Progress bar
-            progress_bar = QProgressBar()
-            progress_bar.setStyleSheet(f"""
-                QProgressBar {{
-                    background-color: #e9ecef;
-                    border: none;
-                    border-radius: 8px;
-                    height: 20px;
-                    text-align: center;
-                    font-weight: bold;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {color};
-                    border-radius: 8px;
-                }}
-            """)
-            progress_bar.setRange(0, 100)
-            progress_bar.setValue(0)
-            tier_layout.addWidget(progress_bar)
-            
-            progress_layout.addLayout(tier_layout)
-            self.tier_progress_bars[i] = progress_bar
-        
-        parent_layout.addWidget(progress_frame)
-    
-    def create_recent_activity(self, parent_layout):
-        """Create recent activity section"""
-        activity_frame = QFrame()
-        activity_layout = QVBoxLayout(activity_frame)
-        
-        # Section title
-        title = QLabel("Recent Activity")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin-bottom: 20px;")
-        activity_layout.addWidget(title)
-        
-        # Activity list
-        self.activity_list = QVBoxLayout()
-        activity_layout.addLayout(self.activity_list)
-        
-        parent_layout.addWidget(activity_frame)
-    
+        return card
+
+    def create_section_label(self, text):
+        lbl = QLabel(text)
+        lbl.setStyleSheet("color: #a6adc8; font-weight: bold; font-size: 12px; margin-bottom: 10px;")
+        return lbl
+
+    # --- LOGIC ---
     def refresh_data(self):
-        """Refresh dashboard data"""
-        current_user = self.user_manager.get_current_user()
-        if not current_user:
-            return
+        user = self.user_manager.get_current_user()
+        if not user: return
         
-        # Update welcome message
-        self.welcome_label.setText(f"Welcome back, {current_user['username']}!")
+        # 1. Update Header
+        self.lbl_welcome.setText(f"Welcome back, {user['username']}!")
         
-        # Get user stats
-        dashboard_data = self.user_manager.get_dashboard_data()
-        stats = dashboard_data.get('stats', {})
-        tier_status = dashboard_data.get('tier_status', {})
+        # 2. Update Stats (Fetch real data)
+        # Tier
+        tier = self.user_manager.get_current_tier()
+        tier_names = ["Novice", "Intermediate", "Advanced", "Elite"]
+        self.card_tier.value_label.setText(str(tier + 1))
+        self.card_tier.unit_label.setText(tier_names[tier] if tier < 4 else "Elite")
         
-        # Update stat cards
-        self.stat_cards['current_tier'].value_label.setText(str(stats.get('current_tier', 0) + 1))
-        self.stat_cards['questions_answered'].value_label.setText(str(stats.get('total_questions_answered', 0)))
-        self.stat_cards['accuracy'].value_label.setText(f"{stats.get('accuracy_percentage', 0):.1f}%")
-        self.stat_cards['assessments_passed'].value_label.setText(str(stats.get('passed_assessments', 0)))
+        # Volume (Last 7 days)
+        # We need a quick DB query here. Using direct cursor for speed.
+        cursor = self.db.conn.cursor()
         
-        # Update tier progress
-        tiers = tier_status.get('tiers', [])
-        for i, tier in enumerate(tiers):
-            if i < len(self.tier_progress_bars):
-                progress = 100 if tier.get('completed') else (50 if tier.get('accessible') else 0)
-                self.tier_progress_bars[i].setValue(progress)
-                
-                status_text = "✅ Completed" if tier.get('completed') else ("🔓 Available" if tier.get('accessible') else "🔒 Locked")
-                self.tier_progress_bars[i].setFormat(f"{tier.get('name', f'Tier {i+1}')} - {status_text}")
+        # Volume
+        try:
+            vol = cursor.execute("""
+                SELECT COUNT(*) FROM exercise_performances ep
+                JOIN workout_sessions ws ON ep.workout_session_id = ws.id
+                WHERE ws.user_id = ? AND ws.session_date >= date('now', '-7 days')
+            """, (user['id'],)).fetchone()[0]
+            self.card_volume.value_label.setText(str(vol))
+        except: self.card_volume.value_label.setText("0")
+
+        # Sleep
+        try:
+            sleep = cursor.execute("""
+                SELECT AVG(sleep_quality) FROM sleep_entries
+                WHERE user_id = ? AND entry_date >= date('now', '-7 days')
+            """, (user['id'],)).fetchone()[0]
+            val = f"{sleep:.1f}" if sleep else "-"
+            self.card_sleep.value_label.setText(val)
+        except: self.card_sleep.value_label.setText("-")
+
+        # Cals
+        try:
+            cals = cursor.execute("""
+                SELECT AVG(total_calories) FROM diet_entries
+                WHERE user_id = ? AND entry_date >= date('now', '-7 days')
+            """, (user['id'],)).fetchone()[0]
+            val = str(int(cals)) if cals else "0"
+            self.card_cals.value_label.setText(val)
+        except: self.card_cals.value_label.setText("0")
+
+        # 3. Update Activity Feed
+        self.update_activity_feed(user['id'])
+
+    def update_activity_feed(self, user_id):
+        self.activity_list.clear()
         
-        # Update recent activity
-        self.update_recent_activity(dashboard_data.get('recent_activity', {}))
-    
-    def update_recent_activity(self, activity_data):
-        """Update recent activity list"""
-        # Clear existing activity items
-        while self.activity_list.count():
-            child = self.activity_list.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        # Fetch last 5 activities (Union of Workouts, Diet, Sleep)
+        # Simplified: Just fetching workouts for now to avoid complex union query strings
+        cursor = self.db.conn.cursor()
         
-        # Add activity items
+        # Workouts
+        workouts = cursor.execute("""
+            SELECT session_date, 'Workout', 'Logged a session' 
+            FROM workout_sessions WHERE user_id=? ORDER BY session_date DESC LIMIT 3
+        """, (user_id,)).fetchall()
+        
+        # Diet
+        diets = cursor.execute("""
+            SELECT entry_date, 'Nutrition', total_calories || ' kcal logged'
+            FROM diet_entries WHERE user_id=? ORDER BY entry_date DESC LIMIT 3
+        """, (user_id,)).fetchall()
+        
+        # Combine and Sort
         activities = []
+        for w in workouts: activities.append((w[0], "🏋️", "Workout Logged"))
+        for d in diets: activities.append((d[0], "🥑", f"Nutrition: {d[2]}"))
         
-        # Diet entries
-        diet_count = activity_data.get('diet_entries', 0)
-        if diet_count > 0:
-            activities.append((f"📊 Logged {diet_count} diet entries this week", "#28a745"))
-        
-        # Sleep entries
-        sleep_count = activity_data.get('sleep_entries', 0)
-        if sleep_count > 0:
-            activities.append((f"😴 Tracked {sleep_count} sleep sessions this week", "#6f42c1"))
-        
-        # Training entries
-        training_count = activity_data.get('training_entries', 0)
-        if training_count > 0:
-            activities.append((f"💪 Completed {training_count} workouts this week", "#fd7e14"))
+        # Sort by date (desc)
+        activities.sort(key=lambda x: x[0], reverse=True)
         
         if not activities:
-            activities.append(("No recent activity - start tracking your progress!", "#6c757d"))
-        
-        for text, color in activities:
-            activity_item = QLabel(text)
-            activity_item.setStyleSheet(f"""
-                color: {color};
-                font-size: 14px;
-                padding: 8px;
-                background-color: #f8f9fa;
-                border-radius: 6px;
-                margin: 2px;
-            """)
-            self.activity_list.addWidget(activity_item)
+            self.activity_list.addItem("No recent activity.")
+            return
+
+        for date_str, icon, desc in activities[:5]:
+            item = QListWidgetItem(f"{icon}  {date_str} — {desc}")
+            self.activity_list.addItem(item)

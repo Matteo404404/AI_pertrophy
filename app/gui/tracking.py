@@ -1,9 +1,6 @@
 """
-Scientific Hypertrophy Trainer - Tracking Interface v3.1 (STABLE)
-- Fixed: Added missing 'refresh_data' to prevent crash
-- Fixed: Restored Save/Load logic (removed 'pass' placeholders)
-- Design: Professional Dark Theme structure
-- AI: Real Data Visualization
+Scientific Hypertrophy Trainer - Tracking Interface v3.3
+- Fixed: Hard import for ExerciseLibraryDialog
 """
 
 from PyQt6.QtWidgets import (
@@ -22,11 +19,17 @@ import json
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+# --- STRICT IMPORT: EXERCISE LIBRARY ---
+# This ensures we see the error immediately if the file is missing
+from gui.exercise_library import ExerciseLibraryDialog
+
+# AI Engine
 try:
     from ml_engine.inference.hybrid_predictor import HybridPredictor
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
+
 
 # --- MICRONUTRIENT CONFIG ---
 MICROS_CONFIG = {

@@ -164,6 +164,7 @@ def main():
     try:
         window = MainWindow()
         window.db.seed_scientific_exercises()
+        
         window.show()
         sys.exit(app.exec())
     except Exception as e:
