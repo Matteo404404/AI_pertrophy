@@ -43,3 +43,4 @@ training_run*.log
 .ipynb_checkpoints/
 ml_engine/data/training_data.csv
 ml_engine/models/*.pt
+research_lab/training/checkpoints

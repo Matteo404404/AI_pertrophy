@@ -1,11 +1,11 @@
 """
-Train Strength Prediction Model
+Train Strength Prediction Model (Bulletproof Version)
 
 Complete training pipeline:
 1. Generate synthetic data (5K users)
 2. Create PyTorch dataloaders
 3. Build and train LSTM model
-4. Save trained model
+4. Save trained model & stats to the correct ML Engine folders
 
 Usage:
     python train_model.py --num_users 5000 --num_epochs 50
@@ -19,26 +19,36 @@ import pandas as pd
 import logging
 import os
 import sys
+import json
 from datetime import datetime
 
-# --- IMPORT FIXES ---
-# We need to add the current directory to sys.path to ensure imports work
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# --- PATH SETUP ---
+# Get the absolute path to the project root (where this script is)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
 
-# 1. Generator is in research_lab
+# Define output directories relative to root
+ML_ENGINE_DIR = os.path.join(BASE_DIR, 'ml_engine')
+DATA_DIR = os.path.join(ML_ENGINE_DIR, 'data')
+MODELS_DIR = os.path.join(ML_ENGINE_DIR, 'models')
+
+# Create directories if they don't exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+# --- IMPORTS ---
 try:
+    # Try importing from research_lab (standard structure)
     from research_lab.generator.enhanced_synthetic_generator import EnhancedSyntheticDataGenerator
     from research_lab.training.dataset import create_dataloaders
     from research_lab.training.trainer import StrengthPredictorTrainer
 except ImportError:
-    # Fallback if files were moved differently
+    # Fallback to local if structure is flat
+    print("⚠️  Using fallback imports...")
     from ml_engine.data.enhanced_synthetic_generator import EnhancedSyntheticDataGenerator
-    # You might need to adjust these if your specific file moves were different, 
-    # but based on standard structure, the above should work.
+    # You might need to adjust these if your specific file moves were different
 
-# 2. Model Architecture is in ml_engine (shared with the app)
 from ml_engine.models.pytorch_strength_predictor import create_model
-# --------------------
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,17 +57,17 @@ def main(args):
     """Main training pipeline."""
     
     logger.info("="*80)
-    logger.info("STRENGTH PREDICTION MODEL - TRAINING PIPELINE")
+    logger.info(f"STRENGTH PREDICTION MODEL - TRAINING PIPELINE")
+    logger.info(f"Root Directory: {BASE_DIR}")
     logger.info("="*80)
     
     # --- Step 1: Generate synthetic data ---
     logger.info("\n[STEP 1] Checking training data...")
-    # Save data to ml_engine/data so the app can find normalization stats later
-    os.makedirs('ml_engine/data', exist_ok=True)
-    training_data_path = 'ml_engine/data/training_data.csv'
+    
+    training_data_path = os.path.join(DATA_DIR, 'training_data.csv')
     
     if os.path.exists(training_data_path) and not args.regenerate:
-        logger.info(f"  • Found existing data at {training_data_path}")
+        logger.info(f"  • Found existing data at: {training_data_path}")
         df = pd.read_csv(training_data_path)
         logger.info(f"  ✅ Loaded {len(df)} records")
     else:
@@ -84,12 +94,11 @@ def main(args):
         train_split=0.8
     )
     
-    # Save normalization stats immediately so we don't forget
-    import json
-    stats_path = 'ml_engine/data/normalization_stats.json'
+    # CRITICAL: Save normalization stats so the GUI can use the model later
+    stats_path = os.path.join(DATA_DIR, 'normalization_stats.json')
     with open(stats_path, 'w') as f:
         json.dump(dataset.get_normalization_stats(), f, indent=4)
-    logger.info(f"  💾 Saved normalization stats to {stats_path}")
+    logger.info(f"  💾 Saved normalization stats to: {stats_path}")
     
     # --- Step 3: Create model ---
     logger.info("\n[STEP 3] Creating PyTorch model...")
@@ -110,11 +119,13 @@ def main(args):
     # --- Step 4: Setup trainer ---
     logger.info("\n[STEP 4] Setting up trainer...")
     
-    # Save checkpoints to research_lab, final model to ml_engine
+    # Checkpoints go to research lab (temp storage)
+    checkpoint_dir = os.path.join(BASE_DIR, 'research_lab', 'training', 'checkpoints')
+    
     trainer = StrengthPredictorTrainer(
         model, 
         device=device,
-        checkpoint_dir='research_lab/training/checkpoints'
+        checkpoint_dir=checkpoint_dir
     )
     trainer.setup_optimizer(lr=args.lr)
     
@@ -137,11 +148,10 @@ def main(args):
     logger.info("\n[STEP 6] Saving trained model...")
     
     # Save to ml_engine/models so the APP can use it immediately
-    os.makedirs('ml_engine/models', exist_ok=True)
-    model_path = 'ml_engine/models/strength_predictor.pt'
+    model_path = os.path.join(MODELS_DIR, 'strength_predictor.pt')
     trainer.save_final_model(model_path)
     
-    logger.info(f"  ✅ Model saved to {model_path}")
+    logger.info(f"  ✅ Model saved to: {model_path}")
     logger.info("="*80)
 
 if __name__ == "__main__":
