@@ -47,6 +47,29 @@ def seed_database():
     # 2. CLEAR OLD DATA to ensure clean state
     print("🧹 Cleaning old exercise data...")
     cursor.execute("DELETE FROM exercises")
+    print("📋 Injecting Evidence-Based Protocols...")
+    
+    # 1. Schoenfeld's Hypertrophy Essentials (Full Body)
+    cursor.execute("INSERT INTO workout_templates (name, description) VALUES ('Schoenfeld Essentials', 'Scientific 3-day full body split focusing on mechanical tension and 8-12 rep ranges.')")
+    t1_id = cursor.lastrowid
+    
+    # Associate exercises (Assuming IDs match the ones we just inserted)
+    # This is a simplified logic, in production we would lookup IDs by name
+    essential_exercises = [
+        ("Hack Squat", 3),
+        ("Machine Chest Press (Converging)", 3),
+        ("Chest-Supported Row", 3),
+        ("Romanian Deadlift", 3),
+        ("Seated Leg Curl", 2)
+    ]
+    
+    for i, (name, sets) in enumerate(essential_exercises):
+        ex_id_res = cursor.execute("SELECT id FROM exercises WHERE name=?", (name,)).fetchone()
+        if ex_id_res:
+            cursor.execute("INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets) VALUES (?, ?, ?, ?)", 
+                           (t1_id, ex_id_res[0], i, sets))
+
+    conn.commit()
 
     # 3. INJECT THE SCIENCE
     science_data = [

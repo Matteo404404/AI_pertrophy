@@ -116,7 +116,30 @@ class DatabaseManager:
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
-        
+        # Workout Templates (The "Folders")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workout_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER, -- NULL for system templates
+                name TEXT NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Exercises inside a Template
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS template_exercises (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER,
+                exercise_id INTEGER,
+                order_index INTEGER,
+                target_sets INTEGER,
+                target_reps TEXT, -- e.g. "8-12"
+                FOREIGN KEY(template_id) REFERENCES workout_templates(id),
+                FOREIGN KEY(exercise_id) REFERENCES exercises(id)
+            )
+        """)
         # Body measurements
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS body_measurements (
@@ -1077,12 +1100,17 @@ class DatabaseManager:
 
 
     def get_user_workout_history_df(self, user_id, exercise_name):
-        """Fetches training history for AI analysis."""
+        """
+        Retrieves training history for a specific exercise + daily biometrics.
+        Returns a Pandas DataFrame ready for the ML Engine.
+        FIXED: Using ws.session_date to avoid ep.session_date error.
+        """
         import pandas as pd
         
+        # We join exercise_performances (ep) to workout_sessions (ws) to get the date
         query = """
             SELECT 
-                ep.session_date as date,
+                ws.session_date as date,
                 ep.weight_kg,
                 ep.reps_completed as reps,
                 ep.rir_actual as rir,
@@ -1105,7 +1133,7 @@ class DatabaseManager:
             if df.empty:
                 return df
                 
-            # Aggregate to one row per day (max weight used that day)
+            # Aggregate to one row per day (taking the max weight used that day)
             df = df.groupby('date').agg({
                 'weight_kg': 'max',
                 'reps': 'mean',
@@ -1116,34 +1144,53 @@ class DatabaseManager:
                 'calories': 'first'
             }).reset_index()
             
-            # Fill missing data so AI doesn't crash
+            # Fill missing values so the AI doesn't crash
             defaults = {
-                'sleep_duration_hours': 7.5, 'sleep_quality': 7,
-                'protein_g': 150, 'calories': 2500, 'rir': 2
+                'sleep_duration_hours': 7.5,
+                'sleep_quality': 7,
+                'protein_g': 150,
+                'calories': 2500,
+                'rir': 2
             }
             df.fillna(defaults, inplace=True)
+            
             return df
             
         except Exception as e:
             print(f"❌ DB Error getting AI history: {e}")
             return pd.DataFrame()
 
+
     def get_user_ml_profile(self, user_id):
         """Returns static user features for the AI."""
         user = self.get_user_by_id(user_id)
+        if not user: return {}
+        
+        # Determine Knowledge Tier
+        tier_info = self.get_user_tier_progress(user_id)
+        current_tier = tier_info.get('current_tier', 0)
+        
+        # Convert tier to 0.0-1.0 literacy score
+        literacy_index = 0.2 + (current_tier * 0.25)
+        
         return {
             'age': user.get('age', 25),
-            'weight_kg_user': user.get('weight_kg', 75),
-            'height_cm': user.get('height_cm', 175),
-            'body_fat_pct': user.get('body_fat_percentage', 15),
-            # Default mid-level scores
-            'training_literacy_index': 0.5,
-            'recovery_knowledge': 0.5,
-            'technique_score': 0.5,
-            'load_management_score': 0.5,
-            'assessment_score': 75
+            'weight_kg_user': user.get('weightkg', 75),
+            'height_cm': user.get('heightcm', 175),
+            'body_fat_pct': user.get('bodyfatpercentage', 15),
+            'assessment_score': literacy_index * 100,
+            'training_literacy_index': literacy_index,
+            'load_management_score': literacy_index,
+            'technique_score': literacy_index,
+            'recovery_knowledge': literacy_index,
+            # Placeholder defaults for the 35-feature vector
+            'creatine': 0, 'pre_workout': 0, 'protein_powder': 0, 'caffeine_mg': 0,
+            'stress_level': 5, 'soreness_level': 5, 'fatigue_level': 5, 
+            'readiness_score': 5, 'hrv': 60, 'resting_heart_rate': 60, 
+            'session_rpe': 7, 'recovery_quality': 5, 'days_since_last_session': 2
         }
 
+        
     def add_custom_exercise(self, name, category, muscle, equipment, difficulty, is_compound, description, is_unilateral):
         """Adds a user-defined exercise with full AI metadata"""
         cursor = self.conn.cursor()
@@ -1202,6 +1249,34 @@ class DatabaseManager:
             ("Face Pull", "Pull", "Shoulders", "Cable", "Beginner", False, 
              "Rear delt and rotator cuff focus. Critical for structural balance and shoulder health.", False),
         ]
+    def get_workout_templates(self, user_id=None):
+        """Fetch system templates and user-created ones"""
+        if user_id:
+            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
+        return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
+
+    def get_template_details(self, template_id):
+        """Fetch all exercises for a specific folder/template"""
+        query = """
+            SELECT te.*, e.name, e.is_unilateral 
+            FROM template_exercises te
+            JOIN exercises e ON te.exercise_id = e.id
+            WHERE te.template_id = ?
+            ORDER BY te.order_index ASC
+        """
+        return self.conn.execute(query, (template_id,)).fetchall()
+
+    def create_custom_template(self, user_id, name, exercises_data):
+        """Saves a 'Folder' of exercises as a routine"""
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO workout_templates (user_id, name) VALUES (?, ?)", (user_id, name))
+        tid = cursor.lastrowid
+        for i, ex in enumerate(exercises_data):
+            cursor.execute("""
+                INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets)
+                VALUES (?, ?, ?, ?)
+            """, (tid, ex['id'], i, ex['sets']))
+        self.conn.commit()
 
         # Note: You might need to run a migration to add 'is_unilateral' column if it doesn't exist
         # For now we insert without it if table creates error, or you can delete the .db file to regenerate
