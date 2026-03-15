@@ -1265,6 +1265,39 @@ class DatabaseManager:
             ORDER BY te.order_index ASC
         """
         return self.conn.execute(query, (template_id,)).fetchall()
+    
+    # ==========================================
+    # WORKOUT PROTOCOLS (FOLDERS)
+    # ==========================================
+    def get_workout_templates(self, user_id=None):
+        try:
+            if user_id:
+                return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
+            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
+        except: return[]
+
+    def get_template_details(self, template_id):
+        query = """
+            SELECT te.*, e.name, e.is_unilateral 
+            FROM template_exercises te
+            JOIN exercises e ON te.exercise_id = e.id
+            WHERE te.template_id = ?
+            ORDER BY te.order_index ASC
+        """
+        try:
+            return self.conn.execute(query, (template_id,)).fetchall()
+        except: return[]
+
+    def create_custom_template(self, user_id, name, exercises_data):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO workout_templates (user_id, name, description) VALUES (?, ?, ?)", (user_id, name, "Custom Protocol"))
+        tid = cursor.lastrowid
+        for i, ex in enumerate(exercises_data):
+            cursor.execute("""
+                INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets)
+                VALUES (?, ?, ?, ?)
+            """, (tid, ex['id'], i, ex['sets']))
+        self.conn.commit()
 
     def create_custom_template(self, user_id, name, exercises_data):
         """Saves a 'Folder' of exercises as a routine"""
