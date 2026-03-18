@@ -351,36 +351,6 @@ class UserManager:
                 'training_entries': len(recent_training)
             }
         }
-    def update_user_last_active(self, user_id):
-        """Updates the last_active timestamp for the user."""
-        try:
-            cursor = self.conn.cursor()
-            timestamp = datetime.now().isoformat()
-            cursor.execute(
-                "UPDATE users SET last_active = ? WHERE id = ?", 
-                (timestamp, user_id)
-            )
-            self.conn.commit()
-        except Exception as e:
-            print(f"Warning: Could not update last_active for user {user_id}: {e}")
-
-    def get_user_tier_progress(self, user_id):
-        """Get user's assessment tier progress."""
-        try:
-            cursor = self.conn.cursor()
-            result = cursor.execute(
-                "SELECT MAX(tier_level) FROM assessments WHERE user_id = ? AND passed = 1", 
-                (user_id,)
-            ).fetchone()
-            return int(result[0]) if result[0] is not None else 0
-        except Exception as e:
-            print(f"Warning: Could not get tier progress for user {user_id}: {e}")
-            return 0
-
-    def get_current_tier(self):
-        """This should be in UserManager, not DatabaseManager - but if called, return 0."""
-        print("Warning: get_current_tier called on DatabaseManager - should be on UserManager")
-        return 0
     def get_user_ml_profile(self, user_id):
         """
         Converts assessment history into ML feature vectors (0.0 to 1.0).

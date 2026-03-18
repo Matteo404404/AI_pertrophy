@@ -70,11 +70,11 @@ class StrengthPredictorTrainer:
         )
             
         self.scheduler = ReduceLROnPlateau(
-        self.optimizer,
-        mode='min',
-        factor=0.5,
-        patience=5,
-        min_lr=1e-6
+            self.optimizer,
+            mode='min',
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6
         )
 
         
@@ -287,7 +287,20 @@ class StrengthPredictorTrainer:
         logger.info(f"Loaded checkpoint from {checkpoint_path}")
         return checkpoint
     
-    def save_final_model(self, filepath: str = 'ml/models/strength_predictor.pt'):
-        """Save final trained model."""
-        torch.save(self.model.state_dict(), filepath)
+    def save_final_model(self, filepath: str = 'ml_engine/models/strength_predictor.pt'):
+        """Save final trained model with config so inference can reconstruct it."""
+        checkpoint = {
+            'model_state_dict': self.model.state_dict(),
+            'model_config': {
+                'input_dim': self.model.input_dim,
+                'hidden_dim': self.model.hidden_dim,
+                'num_layers': self.model.num_layers,
+                'predict_horizons': self.model.predict_horizons,
+                'outputs_per_horizon': self.model.outputs_per_horizon,
+                'num_heads': self.model.attention.num_heads,
+            },
+            'training_history': self.training_history,
+            'best_val_loss': self.best_val_loss,
+        }
+        torch.save(checkpoint, filepath)
         logger.info(f"Final model saved to {filepath}")

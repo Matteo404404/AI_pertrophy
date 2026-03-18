@@ -7,8 +7,8 @@ import os
 import sys
 from datetime import datetime
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 print("=" * 70)
 print("🧪 SCIENTIFIC HYPERTROPHY TRAINER - CORE SYSTEM TEST")
@@ -20,7 +20,7 @@ print("📦 TEST 1: Database Manager")
 print("-" * 70)
 
 try:
-    from database.db_manager import DatabaseManager
+    from app.database.db_manager import DatabaseManager
     
     # Create test database
     test_db_path = "data/test_verification.db"
@@ -90,7 +90,7 @@ print("📝 TEST 2: Assessment Engine")
 print("-" * 70)
 
 try:
-    from core.assessment_engine import AssessmentEngine
+    from app.core.assessment_engine import AssessmentEngine
     
     # Initialize engine
     engine = AssessmentEngine("data/questions.json")
@@ -142,7 +142,7 @@ print("👤 TEST 3: User Manager")
 print("-" * 70)
 
 try:
-    from core.user_manager import UserManager
+    from app.core.user_manager import UserManager
     
     # Initialize manager
     manager = UserManager(db)
@@ -198,7 +198,7 @@ print("📊 TEST 4: Tracking System")
 print("-" * 70)
 
 try:
-    from core.tracking_system import TrackingSystem
+    from app.core.tracking_system import TrackingSystem
     
     # Initialize tracking system
     tracking = TrackingSystem(db)

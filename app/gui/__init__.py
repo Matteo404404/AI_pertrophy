@@ -1,15 +1,13 @@
-def __init__(self, db_manager, tracking_system, user_manager):
-        super().__init__()
-        self.db = db_manager
-        self.tracking_system = tracking_system
-        self.user_manager = user_manager
-        
-        # Initialize AI
-        if ML_AVAILABLE:
-            # We point to the model file in the sibling directory
-            model_path = "ml_engine/models/strength_predictor.pt"
-            self.ai_predictor = HybridPredictor(self.db, model_path)
-        else:
-            self.ai_predictor = None
-            
-        self.init_ui()
+from .main_window import MainWindow
+from .dashboard import DashboardWidget
+from .assessment import AssessmentWidget
+from .tracking import TrackingWidget
+from .learning import LearningWidget
+from .user_selection import UserSelectionWidget
+from .exercise_library import ExerciseLibraryDialog
+
+__all__ = [
+    'MainWindow', 'DashboardWidget', 'AssessmentWidget',
+    'TrackingWidget', 'LearningWidget', 'UserSelectionWidget',
+    'ExerciseLibraryDialog'
+]

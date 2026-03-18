@@ -42,11 +42,12 @@ try:
     from research_lab.generator.enhanced_synthetic_generator import EnhancedSyntheticDataGenerator
     from research_lab.training.dataset import create_dataloaders
     from research_lab.training.trainer import StrengthPredictorTrainer
-except ImportError:
-    # Fallback to local if structure is flat
-    print("⚠️  Using fallback imports...")
-    from ml_engine.data.enhanced_synthetic_generator import EnhancedSyntheticDataGenerator
-    # You might need to adjust these if your specific file moves were different
+except ImportError as e:
+    raise ImportError(
+        f"Could not import from research_lab: {e}. "
+        "Ensure research_lab/generator/enhanced_synthetic_generator.py, "
+        "research_lab/training/dataset.py, and research_lab/training/trainer.py exist."
+    )
 
 from ml_engine.models.pytorch_strength_predictor import create_model
 

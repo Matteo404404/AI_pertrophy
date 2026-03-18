@@ -137,7 +137,7 @@ def run_demo():
     
     try:
         # Generate sample data
-        from ml.data.data_generator import AdvancedDataGenerator
+        from ml_engine.data.data_generator import AdvancedDataGenerator
         print("   → Creating user profiles...")
         generator = AdvancedDataGenerator()
         
@@ -165,7 +165,7 @@ def run_demo():
         
     except ImportError as e:
         print(f"❌ Missing components for demo: {e}")
-        print("💡 Make sure all ml.data components are available")
+        print("💡 Make sure all ml_engine.data components are available")
     except Exception as e:
         print(f"❌ Demo failed: {e}")
 
@@ -178,7 +178,7 @@ def generate_data(days: int, output_file: Optional[str] = None):
     print(f"📊 Generating {days} days of synthetic training data...")
     
     try:
-        from ml.data.data_generator import AdvancedDataGenerator
+        from ml_engine.data.data_generator import AdvancedDataGenerator
         
         print("   → Creating realistic user profiles...")
         generator = AdvancedDataGenerator()
@@ -366,7 +366,7 @@ def make_and_display_prediction(data: pd.DataFrame, context_name: str):
     
     try:
         # Import and use enhanced predictor
-        from ml.models.enhanced_predictor import EnhancedLiftingPredictor
+        from ml_engine.models.enhanced_predictor import EnhancedLiftingPredictor
         
         print(f"   🧠 Making prediction using {len(data)} days of data...")
         predictor = EnhancedLiftingPredictor()
@@ -382,7 +382,7 @@ def make_and_display_prediction(data: pd.DataFrame, context_name: str):
             
     except ImportError as e:
         print(f"❌ Missing prediction components: {e}")
-        print("💡 Make sure all ml.models components are available")
+        print("💡 Make sure all ml_engine.models components are available")
         return None
     except Exception as e:
         print(f"❌ Prediction error: {e}")

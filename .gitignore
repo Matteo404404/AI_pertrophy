@@ -1,46 +1,63 @@
-# --- Python General ---
+# ─── Python ───
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.env/
-.venv/
+*.py[cod]
+*$py.class
+*.so
 *.egg-info/
+dist/
+build/
+*.egg
 
-# --- Machine Learning Data ---
-# Ignore the huge synthetic CSVs
-ml/data/*.csv
-# Keep json files (like normalization_stats.json) as they are small and needed for the GUI
-!ml/data/*.json
+# ─── Virtual environments ───
+venv/
+.venv/
+env/
+.env
 
-# --- Model Weights & Checkpoints ---
-# Ignore intermediate checkpoints (these take up GBs of space)
-ml/checkpoints/
-# Ignore compiled models (unless you specifically want to version control a small one)
-ml/models/*.pt
-ml/models/*.pth
-
-# --- Database ---
-# Don't commit your local testing database
-database/*.db
-database/*.sqlite
-*.sqlite3
-
-# --- Logs & Outputs ---
-*.log
-nohup.out
-training_run*.log
-
-# --- IDE / Editor Settings ---
+# ─── IDE ───
 .vscode/
 .idea/
-.DS_Store
+*.swp
+*.swo
+*~
 
-# --- Jupyter Notebooks ---
-.ipynb_checkpoints/
-ml_engine/data/training_data.csv
+# ─── SQLite databases (user data, generated at runtime) ───
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/*.db
+
+# ─── Trained model weights (large binaries, retrain locally) ───
+*.pt
+*.pth
+*.onnx
 ml_engine/models/*.pt
-research_lab/training/checkpoints
+ml_engine/checkpoints/
+research_lab/training/checkpoints/
+
+# ─── Generated/synthetic training data ───
+*.csv
+ml_engine/data/*.csv
+synthetic_data.csv
+
+# ─── Normalization stats (regenerated during training) ───
+ml_engine/data/normalization_stats.json
+
+# ─── Logs ───
+*.log
+ml_engine/logs/
+
+# ─── OS junk ───
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Jupyter ───
+.ipynb_checkpoints/
+
+# ─── Misc ───
+*.bak
+*.tmp
+*.orig
+*.conflict*

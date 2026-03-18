@@ -39,14 +39,14 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                experiencelevel TEXT NOT NULL,
-                primarygoal TEXT DEFAULT 'hypertrophy',
-                weightkg REAL,
-                heightcm REAL,
-                bodyfatpercentage REAL,
+                experience_level TEXT NOT NULL,
+                primary_goal TEXT DEFAULT 'hypertrophy',
+                weight_kg REAL,
+                height_cm REAL,
+                body_fat_percentage REAL,
                 age INTEGER DEFAULT 25,
                 last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-                createdat TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
              )
         """)
         
@@ -74,6 +74,7 @@ class DatabaseManager:
                 user_answer TEXT,
                 correct_answer TEXT,
                 is_correct BOOLEAN,
+                question_text TEXT,
                 FOREIGN KEY (assessment_id) REFERENCES assessments(id)
             )
         """)
@@ -389,21 +390,22 @@ class DatabaseManager:
         """Add any missing columns to existing tables"""
         cursor = self.conn.cursor()
         
-        # Add age column
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN age INTEGER DEFAULT 25")
-            self.conn.commit()
-            print("✅ Added age column to users table")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
+        columns_to_add = [
+            ("users", "age", "INTEGER DEFAULT 25"),
+            ("users", "last_active", "TEXT"),
+            ("exercises", "is_unilateral", "BOOLEAN DEFAULT 0"),
+            ("exercises", "stability_score", "INTEGER"),
+            ("exercises", "resistance_profile", "TEXT"),
+            ("exercises", "regional_bias", "TEXT"),
+            ("assessment_answers", "question_text", "TEXT"),
+        ]
         
-        # Add lastactive column
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN lastactive TEXT")
-            self.conn.commit()
-            print("✅ Added lastactive column to users table")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
+        for table, column, col_type in columns_to_add:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                self.conn.commit()
+            except sqlite3.OperationalError:
+                pass
 
     def create_demo_data(self):
         """Create demo users and system exercises"""
@@ -1030,18 +1032,18 @@ class DatabaseManager:
             self.conn.close()
 
     def update_user_last_active(self, user_id):
-        """Updates the lastactive timestamp for the user."""
+        """Updates the last_active timestamp for the user."""
         from datetime import datetime
         try:
             cursor = self.conn.cursor()
             timestamp = datetime.now().isoformat()
             cursor.execute(
-                "UPDATE users SET lastactive = ? WHERE id = ?",
+                "UPDATE users SET last_active = ? WHERE id = ?",
                 (timestamp, user_id)
             )
             self.conn.commit()
         except Exception as e:
-            print(f"Warning: Could not update lastactive for user {user_id}: {e}")
+            print(f"Warning: Could not update last_active for user {user_id}: {e}")
 
     def get_user_tier_progress(self, user_id):
         """
@@ -1175,9 +1177,9 @@ class DatabaseManager:
         
         return {
             'age': user.get('age', 25),
-            'weight_kg_user': user.get('weightkg', 75),
-            'height_cm': user.get('heightcm', 175),
-            'body_fat_pct': user.get('bodyfatpercentage', 15),
+            'weight_kg_user': user.get('weight_kg', 75),
+            'height_cm': user.get('height_cm', 175),
+            'body_fat_pct': user.get('body_fat_percentage', 15),
             'assessment_score': literacy_index * 100,
             'training_literacy_index': literacy_index,
             'load_management_score': literacy_index,
@@ -1208,52 +1210,222 @@ class DatabaseManager:
             return None
 
     def seed_scientific_exercises(self):
-        """Populates DB with evidence-based hypertrophy exercises"""
-        # Check if empty
+        """
+        Populates DB with evidence-based hypertrophy exercises.
+        Includes biomechanics metadata (Beardsley 2020):
+        - resistance_profile: ascending/descending/bell/constant
+        - stability_score: 1-10 (10 = most stable, e.g. machine)
+        - regional_bias: which sub-region of the muscle is most loaded
+        - sfr_rating: stimulus-to-fatigue ratio (1-10)
+        - lengthened_bias: 0/1 whether exercise loads the stretched position
+        """
         cursor = self.conn.cursor()
         count = cursor.execute("SELECT count(*) FROM exercises").fetchone()[0]
-        if count > 10: return # Already populated
+        if count > 20:
+            return
 
         exercises = [
-            # CHEST
-            ("DB Bench Press", "Push", "Chest", "Dumbbell", "Intermediate", True, 
-             "High stability requirements. Offers greater ROM than barbell. Peak tension in mid-range.", True),
-            ("Cable Fly (Crossover)", "Push", "Chest", "Cable", "Beginner", False, 
-             "Constant tension profile. Excellent for training chest in the shortened position.", True),
-            ("Incline Barbell Press", "Push", "Chest", "Barbell", "Intermediate", True, 
-             "Biases clavicular (upper) pec fibers. Fixed path allows high mechanical tension loading.", False),
-            
-            # BACK
-            ("Chest-Supported Row", "Pull", "Back", "Machine", "Beginner", True, 
-             "Removes lower back limitation. High stability allows maximal output for Lats/Rhomboids.", True),
-            ("Lat Pulldown (Neutral)", "Pull", "Back", "Cable", "Beginner", True, 
-             "Vertical pull biasing the Lats. Neutral grip improves leverage and reduces shoulder impingement risk.", True),
-            ("Straight Arm Pulldown", "Pull", "Back", "Cable", "Intermediate", False, 
-             "Isolation movement for Lats. Trains the muscle in the lengthened position (stretch).", False),
+            # (name, cat, muscle, equip, diff, compound, instructions, unilateral,
+            #  stability, resistance_profile, regional_bias, sfr, lengthened_bias)
 
-            # LEGS (Quads)
-            ("Hack Squat", "Legs", "Quads", "Machine", "Intermediate", True, 
-             "High stability squat pattern. Removes balance factor, allowing maximal motor unit recruitment for quads.", False),
-            ("Leg Extension", "Legs", "Quads", "Machine", "Beginner", False, 
-             "Only exercise to fully load the Rectus Femoris in shortened position. Critical for complete development.", True),
-            
-            # LEGS (Hams/Glutes)
-            ("Romanian Deadlift", "Legs", "Hamstrings", "Barbell", "Advanced", True, 
-             "Stretch-mediated hypertrophy king for hamstrings. High systemic fatigue but immense stimulus.", False),
-            ("Seated Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False, 
-             "Superior to lying curl due to hip flexion putting hamstrings at optimal length for tension.", True),
+            # ─── CHEST ───
+            ("Flat Barbell Bench Press", "Push", "Chest", "Barbell", "Intermediate", True,
+             "Ascending resistance profile. Peak tension at lockout. Sternal head dominant. "
+             "High absolute load capacity but shoulder impingement risk at end-range.",
+             False, 7, "ascending", "sternal_mid", 6, 0),
+            ("Flat DB Bench Press", "Push", "Chest", "Dumbbell", "Intermediate", True,
+             "Greater ROM than barbell. More adduction at top. Higher stability demand "
+             "means slightly less absolute load but superior per-fiber tension for pecs.",
+             True, 5, "bell", "sternal_mid", 7, 0),
+            ("Incline Barbell Press", "Push", "Chest", "Barbell", "Intermediate", True,
+             "30-45 degree incline biases clavicular (upper) pec fibers. "
+             "Fixed bar path allows high loading. Anterior deltoid is a significant synergist.",
+             False, 7, "ascending", "clavicular_upper", 6, 0),
+            ("Incline DB Press", "Push", "Chest", "Dumbbell", "Intermediate", True,
+             "Incline + dumbbell = upper pec bias with greater ROM and adduction. "
+             "Peak tension in mid-range. Superior upper chest stimulus vs barbell variant.",
+             True, 4, "bell", "clavicular_upper", 7, 0),
+            ("Cable Fly (Low-to-High)", "Push", "Chest", "Cable", "Beginner", False,
+             "Constant tension throughout ROM. Low-to-high angle biases clavicular fibers. "
+             "Excellent shortened-position overload for upper chest.",
+             True, 8, "constant", "clavicular_upper", 9, 0),
+            ("Cable Fly (High-to-Low)", "Push", "Chest", "Cable", "Beginner", False,
+             "Targets sternal and costal pec fibers. Constant tension. "
+             "Loads the muscle through the full ROM without joint stress.",
+             True, 8, "constant", "sternal_lower", 9, 0),
+            ("Pec Deck / Machine Fly", "Push", "Chest", "Machine", "Beginner", False,
+             "Maximum stability. Constant tension. Pure horizontal adduction. "
+             "Highest SFR chest exercise — almost zero systemic fatigue.",
+             False, 10, "constant", "sternal_mid", 10, 0),
+            ("Dip (Chest Bias)", "Push", "Chest", "Bodyweight", "Advanced", True,
+             "Forward lean + wide grip loads chest in deep stretch. Very high mechanical tension "
+             "at bottom. Stretch-mediated hypertrophy potential. Shoulder injury risk if overdone.",
+             False, 3, "descending", "sternal_lower", 5, 1),
 
-            # SHOULDERS
-            ("Cable Lateral Raise", "Push", "Shoulders", "Cable", "Intermediate", False, 
-             "Consistent resistance profile throughout ROM unlike dumbbells. Biases side delts.", True),
-            ("Face Pull", "Pull", "Shoulders", "Cable", "Beginner", False, 
-             "Rear delt and rotator cuff focus. Critical for structural balance and shoulder health.", False),
+            # ─── BACK ───
+            ("Chest-Supported T-Bar Row", "Pull", "Back", "Machine", "Beginner", True,
+             "Removes spinal erector demand entirely. All neural drive to lats/rhomboids/traps. "
+             "Best SFR back compound by far.",
+             True, 9, "bell", "mid_back", 9, 0),
+            ("Lat Pulldown (Wide)", "Pull", "Back", "Cable", "Beginner", True,
+             "Vertical pull biasing lat width. Pronated wide grip emphasizes upper lat fibers. "
+             "Constant tension from cable.",
+             True, 8, "constant", "upper_lat", 8, 0),
+            ("Lat Pulldown (Neutral Close)", "Pull", "Back", "Cable", "Beginner", True,
+             "Neutral grip improves leverage and biases lower lats. Reduced shoulder impingement. "
+             "Excellent for lat thickness.",
+             True, 8, "constant", "lower_lat", 8, 0),
+            ("Seated Cable Row", "Pull", "Back", "Cable", "Beginner", True,
+             "Horizontal pull with constant tension. Targets mid-back (rhomboids, mid traps). "
+             "Moderate stability demand.",
+             True, 7, "constant", "mid_back", 8, 0),
+            ("Straight Arm Pulldown", "Pull", "Back", "Cable", "Intermediate", False,
+             "Lat isolation at the lengthened position. Stretch-mediated hypertrophy. "
+             "Zero bicep involvement. Excellent for lat mind-muscle connection.",
+             False, 9, "constant", "full_lat", 9, 1),
+            ("Barbell Bent-Over Row", "Pull", "Back", "Barbell", "Advanced", True,
+             "Heavy horizontal pull but imposes massive spinal erector and hamstring isometric demand. "
+             "Good for absolute strength but poor SFR for pure back hypertrophy.",
+             False, 3, "ascending", "mid_back", 4, 0),
+            ("Pull-Up / Chin-Up", "Pull", "Back", "Bodyweight", "Advanced", True,
+             "Vertical pull. Chin-up (supinated) involves more biceps. Pull-up (pronated) isolates "
+             "lats more. Both require significant strength relative to bodyweight.",
+             False, 3, "descending", "upper_lat", 5, 1),
+
+            # ─── QUADS ───
+            ("Hack Squat", "Legs", "Quads", "Machine", "Intermediate", True,
+             "Fixed path removes balance demand. Allows maximal quad loading without spinal "
+             "compression. Vastus lateralis and medialis dominant.",
+             False, 9, "ascending", "vastus_group", 8, 0),
+            ("Leg Press", "Legs", "Quads", "Machine", "Beginner", True,
+             "Highest absolute load quad exercise. Very high stability. Ascending resistance. "
+             "Foot placement modulates quad vs glute bias.",
+             False, 10, "ascending", "vastus_group", 7, 0),
+            ("Leg Extension", "Legs", "Quads", "Machine", "Beginner", False,
+             "Only exercise that fully loads the rectus femoris (biarticular quad head) in its "
+             "shortened position. Essential for complete quad development. Bell-curve resistance.",
+             False, 10, "bell", "rectus_femoris", 10, 0),
+            ("Bulgarian Split Squat", "Legs", "Quads", "Dumbbell", "Advanced", True,
+             "Unilateral. Deep stretch at bottom loads VMO and adductors. High stability demand. "
+             "Excellent for addressing bilateral imbalances.",
+             True, 3, "descending", "vmo_adductor", 5, 1),
+            ("Barbell Back Squat", "Legs", "Quads", "Barbell", "Advanced", True,
+             "King of compound lifts. High spinal load and CNS demand. Good for overall leg "
+             "development but poor SFR if hypertrophy is the only goal. Consider hack squat instead.",
+             False, 4, "ascending", "full_quad", 4, 0),
+            ("Sissy Squat", "Legs", "Quads", "Bodyweight", "Advanced", False,
+             "Extreme knee flexion with hip extension loads rectus femoris at long length. "
+             "One of few exercises providing stretch-mediated stimulus to quads. Requires knee health.",
+             False, 2, "descending", "rectus_femoris", 6, 1),
+
+            # ─── HAMSTRINGS ───
+            ("Seated Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False,
+             "Hip flexion puts hamstrings at optimal length (avoids active insufficiency). "
+             "Superior to lying curl for muscle growth (Maeo et al. 2021). Constant tension.",
+             False, 10, "constant", "full_hamstring", 10, 1),
+            ("Lying Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False,
+             "Hips extended = hamstrings in active insufficiency. Less effective than seated variant "
+             "for hypertrophy but still useful. Often cramping occurs due to shortened position.",
+             False, 10, "bell", "distal_hamstring", 8, 0),
+            ("Romanian Deadlift", "Legs", "Hamstrings", "Barbell", "Advanced", True,
+             "Stretch-mediated hypertrophy gold standard for hamstrings. Massive eccentric tension "
+             "at long muscle length. However: very high systemic/spinal erector fatigue.",
+             False, 4, "descending", "proximal_hamstring", 5, 1),
+            ("Nordic Hamstring Curl", "Legs", "Hamstrings", "Bodyweight", "Advanced", False,
+             "Extreme eccentric overload. Shown to reduce hamstring injury rates. Very high "
+             "tension at long length. Requires significant strength — modify with band assist.",
+             False, 3, "descending", "full_hamstring", 5, 1),
+
+            # ─── GLUTES ───
+            ("Hip Thrust", "Legs", "Glutes", "Barbell", "Intermediate", True,
+             "Peak tension at full hip extension (shortened position). Directly loads glute max. "
+             "Ascending resistance matches glute strength curve.",
+             False, 7, "ascending", "glute_max", 8, 0),
+            ("Cable Pull-Through", "Legs", "Glutes", "Cable", "Beginner", True,
+             "Constant tension hip hinge. Loads glutes at long length unlike hip thrust. "
+             "Lower absolute load but better length-tension matching.",
+             False, 7, "constant", "glute_max", 8, 1),
+
+            # ─── SHOULDERS ───
+            ("Cable Lateral Raise", "Push", "Shoulders", "Cable", "Intermediate", False,
+             "Constant tension profile vs dumbbells (which have zero tension at bottom). "
+             "Superior for lateral deltoid hypertrophy. Use slight forward lean for long head bias.",
+             True, 8, "constant", "lateral_delt", 10, 0),
+            ("DB Lateral Raise", "Push", "Shoulders", "Dumbbell", "Beginner", False,
+             "Bell curve resistance (hardest at 90 degrees). Zero tension at bottom of ROM. "
+             "Cable variant is superior but this is more accessible.",
+             True, 6, "bell", "lateral_delt", 8, 0),
+            ("Face Pull", "Pull", "Shoulders", "Cable", "Beginner", False,
+             "Rear deltoid + external rotators. Essential for structural balance against pressing "
+             "volume. Constant tension. Very high SFR.",
+             False, 8, "constant", "rear_delt", 10, 0),
+            ("Overhead Press (DB)", "Push", "Shoulders", "Dumbbell", "Intermediate", True,
+             "Anterior deltoid dominant. Greater ROM than barbell. Ascending resistance. "
+             "Moderate SFR — imposes significant trap/core stabilization demand.",
+             True, 4, "ascending", "anterior_delt", 6, 0),
+            ("Reverse Pec Deck", "Pull", "Shoulders", "Machine", "Beginner", False,
+             "Maximum stability rear delt isolation. Constant tension. "
+             "Highest SFR rear delt exercise. Use for high-frequency rear delt work.",
+             False, 10, "constant", "rear_delt", 10, 0),
+
+            # ─── BICEPS ───
+            ("Incline Dumbbell Curl", "Pull", "Biceps", "Dumbbell", "Intermediate", False,
+             "Shoulder extension + elbow flexion = biceps long head at maximal stretch. "
+             "The most effective biceps exercise for stretch-mediated hypertrophy (Pedrosa 2023).",
+             True, 6, "bell", "long_head", 9, 1),
+            ("Preacher Curl", "Pull", "Biceps", "Dumbbell", "Beginner", False,
+             "Shoulder flexion shortens the long head, biasing the short head. "
+             "Peak tension at mid-range. Good for short head width.",
+             True, 8, "bell", "short_head", 9, 0),
+            ("Cable Curl", "Pull", "Biceps", "Cable", "Beginner", False,
+             "Constant tension throughout ROM. Cable direction can be adjusted to modify "
+             "the resistance profile (overhead for lengthened, low for shortened emphasis).",
+             True, 8, "constant", "full_biceps", 9, 0),
+
+            # ─── TRICEPS ───
+            ("Overhead Cable Triceps Extension", "Push", "Triceps", "Cable", "Intermediate", False,
+             "Shoulder flexion stretches the long head — the largest triceps head. "
+             "Stretch-mediated hypertrophy. Constant cable tension. Best overall triceps exercise.",
+             True, 7, "constant", "long_head", 9, 1),
+            ("Cable Pushdown", "Push", "Triceps", "Cable", "Beginner", False,
+             "Shoulder in neutral = long head shortened, biasing lateral and medial heads. "
+             "Good complement to overhead work but NOT a replacement for it.",
+             True, 8, "constant", "lateral_head", 8, 0),
+            ("Close-Grip Bench Press", "Push", "Triceps", "Barbell", "Intermediate", True,
+             "Compound triceps movement. High absolute load but chest is a significant synergist. "
+             "Use for strength; prefer isolations for triceps hypertrophy.",
+             False, 7, "ascending", "full_triceps", 5, 0),
+
+            # ─── CALVES ───
+            ("Seated Calf Raise", "Legs", "Calves", "Machine", "Beginner", False,
+             "Knee flexion shortens the gastrocnemius, isolating the soleus (60% of calf mass). "
+             "Essential — standing raises alone miss the soleus.",
+             False, 10, "ascending", "soleus", 9, 0),
+            ("Standing Calf Raise", "Legs", "Calves", "Machine", "Beginner", False,
+             "Knee extension loads the gastrocnemius. Go deep into the stretch at bottom. "
+             "Use 5-8 second eccentrics for optimal stimulus.",
+             False, 9, "ascending", "gastrocnemius", 8, 1),
         ]
+
+        for ex in exercises:
+            try:
+                cursor.execute("""
+                    INSERT INTO exercises (name, category, muscle_group_primary, equipment,
+                    difficulty_level, is_compound, instructions, is_unilateral,
+                    stability_score, resistance_profile, regional_bias)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, ex[:11])
+            except (sqlite3.IntegrityError, sqlite3.OperationalError):
+                pass
+        self.conn.commit()
     def get_workout_templates(self, user_id=None):
         """Fetch system templates and user-created ones"""
-        if user_id:
-            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
-        return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
+        try:
+            if user_id:
+                return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
+            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
+        except:
+            return []
 
     def get_template_details(self, template_id):
         """Fetch all exercises for a specific folder/template"""
@@ -1264,66 +1436,20 @@ class DatabaseManager:
             WHERE te.template_id = ?
             ORDER BY te.order_index ASC
         """
-        return self.conn.execute(query, (template_id,)).fetchall()
-    
-    # ==========================================
-    # WORKOUT PROTOCOLS (FOLDERS)
-    # ==========================================
-    def get_workout_templates(self, user_id=None):
-        try:
-            if user_id:
-                return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
-            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
-        except: return[]
-
-    def get_template_details(self, template_id):
-        query = """
-            SELECT te.*, e.name, e.is_unilateral 
-            FROM template_exercises te
-            JOIN exercises e ON te.exercise_id = e.id
-            WHERE te.template_id = ?
-            ORDER BY te.order_index ASC
-        """
         try:
             return self.conn.execute(query, (template_id,)).fetchall()
-        except: return[]
+        except:
+            return []
 
     def create_custom_template(self, user_id, name, exercises_data):
+        """Saves a protocol/folder of exercises as a routine"""
         cursor = self.conn.cursor()
-        cursor.execute("INSERT INTO workout_templates (user_id, name, description) VALUES (?, ?, ?)", (user_id, name, "Custom Protocol"))
+        cursor.execute("INSERT INTO workout_templates (user_id, name, description) VALUES (?, ?, ?)",
+                       (user_id, name, "Custom Protocol"))
         tid = cursor.lastrowid
         for i, ex in enumerate(exercises_data):
             cursor.execute("""
                 INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets)
                 VALUES (?, ?, ?, ?)
             """, (tid, ex['id'], i, ex['sets']))
-        self.conn.commit()
-
-    def create_custom_template(self, user_id, name, exercises_data):
-        """Saves a 'Folder' of exercises as a routine"""
-        cursor = self.conn.cursor()
-        cursor.execute("INSERT INTO workout_templates (user_id, name) VALUES (?, ?)", (user_id, name))
-        tid = cursor.lastrowid
-        for i, ex in enumerate(exercises_data):
-            cursor.execute("""
-                INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets)
-                VALUES (?, ?, ?, ?)
-            """, (tid, ex['id'], i, ex['sets']))
-        self.conn.commit()
-
-        # Note: You might need to run a migration to add 'is_unilateral' column if it doesn't exist
-        # For now we insert without it if table creates error, or you can delete the .db file to regenerate
-        try:
-            # Quick hack to ensure column exists
-            cursor.execute("ALTER TABLE exercises ADD COLUMN is_unilateral BOOLEAN DEFAULT 0")
-        except: pass # Column likely exists or logic handled
-
-        for ex in exercises:
-            try:
-                cursor.execute("""
-                    INSERT INTO exercises (name, category, muscle_group_primary, equipment, 
-                    difficulty_level, is_compound, instructions, is_unilateral)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, ex)
-            except: pass
         self.conn.commit()

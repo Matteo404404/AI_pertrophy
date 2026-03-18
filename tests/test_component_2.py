@@ -24,7 +24,7 @@ print("=" * 80)
 
 # Import after path setup
 try:
-    from ml.data.tdee_calculator import TDEECalculator, ActivityLevel, EquationType, calculate_maintenance_calories
+    from ml_engine.data.tdee_calculator import TDEECalculator, ActivityLevel, EquationType, calculate_maintenance_calories
     print("✅ TDEE Calculator imported successfully")
 except ImportError as e:
     print(f"❌ TDEE Calculator import failed: {e}")
@@ -35,7 +35,7 @@ except ImportError as e:
     try:
         import importlib.util
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tdee_path = os.path.join(parent_dir, "ml", "data", "tdee_calculator.py")
+        tdee_path = os.path.join(parent_dir, "ml_engine", "data", "tdee_calculator.py")
         
         spec = importlib.util.spec_from_file_location("tdee_calculator", tdee_path)
         tdee_module = importlib.util.module_from_spec(spec)
@@ -52,7 +52,7 @@ except ImportError as e:
         sys.exit(1)
 
 try:
-    from ml.data.data_generator import AdvancedDataGenerator, ExperienceLevel
+    from ml_engine.data.data_generator import AdvancedDataGenerator, ExperienceLevel
     print("✅ Data Generator imported successfully")
 except ImportError as e:
     print(f"❌ Data Generator import failed: {e}")
@@ -61,7 +61,7 @@ except ImportError as e:
     try:
         import importlib.util
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        generator_path = os.path.join(parent_dir, "ml", "data", "data_generator.py")
+        generator_path = os.path.join(parent_dir, "ml_engine", "data", "data_generator.py")
         
         spec = importlib.util.spec_from_file_location("data_generator", generator_path)
         generator_module = importlib.util.module_from_spec(spec)
@@ -429,9 +429,9 @@ def main():
                 
                 # Export for Component 3
                 try:
-                    os.makedirs("ml/data", exist_ok=True)
-                    df.to_csv("ml/data/synthetic_hypertrophy_data.csv", index=False)
-                    print(f"✅ Data exported to: ml/data/synthetic_hypertrophy_data.csv")
+                    os.makedirs("ml_engine/data", exist_ok=True)
+                    df.to_csv("ml_engine/data/synthetic_hypertrophy_data.csv", index=False)
+                    print(f"✅ Data exported to: ml_engine/data/synthetic_hypertrophy_data.csv")
                 except Exception as e:
                     print(f"⚠️ Data export failed: {e}")
             
