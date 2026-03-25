@@ -410,8 +410,9 @@ class DatabaseManager:
     def create_demo_data(self):
         """Create demo users and system exercises"""
         self.create_demo_users()
-        self.create_system_exercises()
-        self.seed_supplement_types()  # NEW: Seed supplements
+        self.seed_scientific_exercises()
+        self.seed_workout_templates()
+        self.seed_supplement_types()
     
     def seed_supplement_types(self):
         """Populate supplement types with evidence-based data"""
@@ -654,19 +655,35 @@ class DatabaseManager:
         return [dict(answer) for answer in answers]
     
     def save_diet_entry(self, user_id, entry_date, **kwargs):
-        """Save diet entry"""
+        """Save or update diet entry for a given date (upsert)."""
         cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO diet_entries
-            (user_id, entry_date, total_calories, protein_g, carbs_g, fats_g,
-             fiber_g, sodium_mg, sugar_g, hydration_liters, meal_timing, 
-             creatine_taken, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, entry_date, kwargs.get('total_calories'), 
-              kwargs.get('protein_g'), kwargs.get('carbs_g'), kwargs.get('fats_g'),
-              kwargs.get('fiber_g'), kwargs.get('sodium_mg'), kwargs.get('sugar_g'),
-              kwargs.get('hydration_liters'), kwargs.get('meal_timing'),
-              kwargs.get('creatine_taken', False), kwargs.get('notes')))
+        fats = kwargs.get('fats_g') or kwargs.get('fat_g')
+        existing = cursor.execute(
+            "SELECT id FROM diet_entries WHERE user_id=? AND entry_date=?",
+            (user_id, entry_date)).fetchone()
+        if existing:
+            cursor.execute("""
+                UPDATE diet_entries SET total_calories=?, protein_g=?, carbs_g=?, fats_g=?,
+                fiber_g=?, sodium_mg=?, sugar_g=?, hydration_liters=?, meal_timing=?,
+                creatine_taken=?, notes=? WHERE id=?
+            """, (kwargs.get('total_calories'), kwargs.get('protein_g'),
+                  kwargs.get('carbs_g'), fats,
+                  kwargs.get('fiber_g'), kwargs.get('sodium_mg'), kwargs.get('sugar_g'),
+                  kwargs.get('hydration_liters'), kwargs.get('meal_timing'),
+                  kwargs.get('creatine_taken', False), kwargs.get('notes'),
+                  existing[0]))
+        else:
+            cursor.execute("""
+                INSERT INTO diet_entries
+                (user_id, entry_date, total_calories, protein_g, carbs_g, fats_g,
+                 fiber_g, sodium_mg, sugar_g, hydration_liters, meal_timing,
+                 creatine_taken, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, entry_date, kwargs.get('total_calories'),
+                  kwargs.get('protein_g'), kwargs.get('carbs_g'), fats,
+                  kwargs.get('fiber_g'), kwargs.get('sodium_mg'), kwargs.get('sugar_g'),
+                  kwargs.get('hydration_liters'), kwargs.get('meal_timing'),
+                  kwargs.get('creatine_taken', False), kwargs.get('notes')))
         self.conn.commit()
         return cursor.lastrowid
     
@@ -681,19 +698,33 @@ class DatabaseManager:
         return [dict(entry) for entry in entries]
     
     def save_sleep_entry(self, user_id, entry_date, **kwargs):
-        """Save sleep entry"""
+        """Save or update sleep entry for a given date (upsert)."""
         cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO sleep_entries
-            (user_id, entry_date, sleep_duration_hours, sleep_quality,
-             deep_sleep_hours, rem_sleep_hours, sleep_latency_minutes,
-             awakenings, sleep_environment_rating, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, entry_date, kwargs.get('sleep_duration_hours'),
-              kwargs.get('sleep_quality'), kwargs.get('deep_sleep_hours'),
-              kwargs.get('rem_sleep_hours'), kwargs.get('sleep_latency_minutes'),
-              kwargs.get('awakenings'), kwargs.get('sleep_environment_rating'),
-              kwargs.get('notes')))
+        existing = cursor.execute(
+            "SELECT id FROM sleep_entries WHERE user_id=? AND entry_date=?",
+            (user_id, entry_date)).fetchone()
+        if existing:
+            cursor.execute("""
+                UPDATE sleep_entries SET sleep_duration_hours=?, sleep_quality=?,
+                deep_sleep_hours=?, rem_sleep_hours=?, sleep_latency_minutes=?,
+                awakenings=?, sleep_environment_rating=?, notes=? WHERE id=?
+            """, (kwargs.get('sleep_duration_hours'), kwargs.get('sleep_quality'),
+                  kwargs.get('deep_sleep_hours'), kwargs.get('rem_sleep_hours'),
+                  kwargs.get('sleep_latency_minutes'), kwargs.get('awakenings'),
+                  kwargs.get('sleep_environment_rating'), kwargs.get('notes'),
+                  existing[0]))
+        else:
+            cursor.execute("""
+                INSERT INTO sleep_entries
+                (user_id, entry_date, sleep_duration_hours, sleep_quality,
+                 deep_sleep_hours, rem_sleep_hours, sleep_latency_minutes,
+                 awakenings, sleep_environment_rating, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, entry_date, kwargs.get('sleep_duration_hours'),
+                  kwargs.get('sleep_quality'), kwargs.get('deep_sleep_hours'),
+                  kwargs.get('rem_sleep_hours'), kwargs.get('sleep_latency_minutes'),
+                  kwargs.get('awakenings'), kwargs.get('sleep_environment_rating'),
+                  kwargs.get('notes')))
         self.conn.commit()
         return cursor.lastrowid
     
@@ -1046,10 +1077,7 @@ class DatabaseManager:
             print(f"Warning: Could not update last_active for user {user_id}: {e}")
 
     def get_user_tier_progress(self, user_id):
-        """
-        Get user's assessment tier progress for the user manager.
-        Returns: dict with current_tier and unlocked flags
-        """
+        """Get user's assessment tier progress for the user manager."""
         try:
             cursor = self.conn.cursor()
             result = cursor.execute(
@@ -1057,30 +1085,30 @@ class DatabaseManager:
                 (user_id,)
             ).fetchone()
             
-            # Get the highest passed tier (0 if no passed assessments)
-            current_tier = int(result[0]) if result and result[0] is not None else 0
+            # FIX: If result is None, they haven't passed anything (-1). 
+            # If they passed Tier 1 (which is index 0), max_passed is 0.
+            max_passed = int(result[0]) if result and result[0] is not None else -1
             
-            # Return dict format expected by user_manager
+            # The tier they are currently allowed to take
+            current_tier = min(max_passed + 1, 2)
+            
             return {
                 'current_tier': current_tier,
-                'tier_1_passed': current_tier >= 1,
-                'tier_2_unlocked': current_tier >= 1,
-                'tier_2_passed': current_tier >= 2,
-                'tier_3_unlocked': current_tier >= 2,
-                'tier_3_passed': current_tier >= 3,
-                'tier_4_unlocked': current_tier >= 3,
+                'tier_1_passed': max_passed >= 0,
+                'tier_2_unlocked': max_passed >= 0,  # Unlocks if Tier 1 (0) is passed
+                'tier_2_passed': max_passed >= 1,
+                'tier_3_unlocked': max_passed >= 1,  # Unlocks if Tier 2 (1) is passed
+                'tier_3_passed': max_passed >= 2,
+                'tier_4_unlocked': max_passed >= 2,
             }
         except Exception as e:
             print(f"Warning: Could not get tier progress for user {user_id}: {e}")
             return {
-                'current_tier': 0,
-                'tier_1_passed': False,
-                'tier_2_unlocked': False,
-                'tier_2_passed': False,
-                'tier_3_unlocked': False,
-                'tier_3_passed': False,
+                'current_tier': 0, 'tier_1_passed': False, 'tier_2_unlocked': False,
+                'tier_2_passed': False, 'tier_3_unlocked': False, 'tier_3_passed': False,
                 'tier_4_unlocked': False,
             }
+            
     def get_training_entries(self, user_id, days=7):
         """Get recent training/workout entries for user"""
         cursor = self.conn.cursor()
@@ -1217,7 +1245,7 @@ class DatabaseManager:
         - stability_score: 1-10 (10 = most stable, e.g. machine)
         - regional_bias: which sub-region of the muscle is most loaded
         - sfr_rating: stimulus-to-fatigue ratio (1-10)
-        - lengthened_bias: 0/1 whether exercise loads the stretched position
+        - lengthened_bias: 0/1 (legacy field, not used for exercise selection)
         """
         cursor = self.conn.cursor()
         count = cursor.execute("SELECT count(*) FROM exercises").fetchone()[0]
@@ -1258,9 +1286,10 @@ class DatabaseManager:
              "Highest SFR chest exercise — almost zero systemic fatigue.",
              False, 10, "constant", "sternal_mid", 10, 0),
             ("Dip (Chest Bias)", "Push", "Chest", "Bodyweight", "Advanced", True,
-             "Forward lean + wide grip loads chest in deep stretch. Very high mechanical tension "
-             "at bottom. Stretch-mediated hypertrophy potential. Shoulder injury risk if overdone.",
-             False, 3, "descending", "sternal_lower", 5, 1),
+             "Forward lean + wide grip emphasizes sternal pec fibers. Very high mechanical "
+             "tension at bottom of ROM. Shoulder injury risk if ROM is pushed beyond "
+             "individual capacity. Low stability = high CNS cost. Moderate SFR.",
+             False, 3, "descending", "sternal_lower", 5, 0),
 
             # ─── BACK ───
             ("Chest-Supported T-Bar Row", "Pull", "Back", "Machine", "Beginner", True,
@@ -1280,9 +1309,10 @@ class DatabaseManager:
              "Moderate stability demand.",
              True, 7, "constant", "mid_back", 8, 0),
             ("Straight Arm Pulldown", "Pull", "Back", "Cable", "Intermediate", False,
-             "Lat isolation at the lengthened position. Stretch-mediated hypertrophy. "
-             "Zero bicep involvement. Excellent for lat mind-muscle connection.",
-             False, 9, "constant", "full_lat", 9, 1),
+             "Lat isolation with zero bicep involvement. Constant cable tension. "
+             "Full ROM through shoulder flexion/extension. High SFR, excellent for "
+             "accumulating lat volume without systemic fatigue.",
+             False, 9, "constant", "full_lat", 9, 0),
             ("Barbell Bent-Over Row", "Pull", "Back", "Barbell", "Advanced", True,
              "Heavy horizontal pull but imposes massive spinal erector and hamstring isometric demand. "
              "Good for absolute strength but poor SFR for pure back hypertrophy.",
@@ -1306,35 +1336,40 @@ class DatabaseManager:
              "shortened position. Essential for complete quad development. Bell-curve resistance.",
              False, 10, "bell", "rectus_femoris", 10, 0),
             ("Bulgarian Split Squat", "Legs", "Quads", "Dumbbell", "Advanced", True,
-             "Unilateral. Deep stretch at bottom loads VMO and adductors. High stability demand. "
-             "Excellent for addressing bilateral imbalances.",
-             True, 3, "descending", "vmo_adductor", 5, 1),
+             "Unilateral compound. Deep ROM loads VMO and adductors. High stability demand "
+             "reduces absolute load but addresses bilateral strength imbalances. Moderate SFR.",
+             True, 3, "descending", "vmo_adductor", 5, 0),
             ("Barbell Back Squat", "Legs", "Quads", "Barbell", "Advanced", True,
              "King of compound lifts. High spinal load and CNS demand. Good for overall leg "
              "development but poor SFR if hypertrophy is the only goal. Consider hack squat instead.",
              False, 4, "ascending", "full_quad", 4, 0),
             ("Sissy Squat", "Legs", "Quads", "Bodyweight", "Advanced", False,
-             "Extreme knee flexion with hip extension loads rectus femoris at long length. "
-             "One of few exercises providing stretch-mediated stimulus to quads. Requires knee health.",
-             False, 2, "descending", "rectus_femoris", 6, 1),
+             "Extreme knee flexion isolates the rectus femoris through a large ROM. "
+             "Very high force demands on the knee joint — requires healthy knees and "
+             "progressive loading. Low stability, moderate SFR. Use as an accessory, not a staple.",
+             False, 2, "descending", "rectus_femoris", 6, 0),
 
             # ─── HAMSTRINGS ───
             ("Seated Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False,
-             "Hip flexion puts hamstrings at optimal length (avoids active insufficiency). "
-             "Superior to lying curl for muscle growth (Maeo et al. 2021). Constant tension.",
-             False, 10, "constant", "full_hamstring", 10, 1),
+             "Hip flexion avoids active insufficiency, allowing hamstrings to produce "
+             "MORE FORCE per rep than lying curl. This is a biomechanical advantage, not "
+             "a stretch effect. Constant tension. Highest SFR hamstring exercise.",
+             False, 10, "constant", "full_hamstring", 10, 0),
             ("Lying Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False,
              "Hips extended = hamstrings in active insufficiency. Less effective than seated variant "
              "for hypertrophy but still useful. Often cramping occurs due to shortened position.",
              False, 10, "bell", "distal_hamstring", 8, 0),
             ("Romanian Deadlift", "Legs", "Hamstrings", "Barbell", "Advanced", True,
-             "Stretch-mediated hypertrophy gold standard for hamstrings. Massive eccentric tension "
-             "at long muscle length. However: very high systemic/spinal erector fatigue.",
-             False, 4, "descending", "proximal_hamstring", 5, 1),
+             "Heavy hip hinge loading proximal hamstrings and glutes. High absolute force "
+             "production but extremely high systemic cost (spinal erectors, CNS). Poor SFR "
+             "for hamstring hypertrophy specifically — seated leg curl produces more hamstring "
+             "stimulus per unit of fatigue. Use sparingly, not as a hamstring staple.",
+             False, 4, "descending", "proximal_hamstring", 5, 0),
             ("Nordic Hamstring Curl", "Legs", "Hamstrings", "Bodyweight", "Advanced", False,
-             "Extreme eccentric overload. Shown to reduce hamstring injury rates. Very high "
-             "tension at long length. Requires significant strength — modify with band assist.",
-             False, 3, "descending", "full_hamstring", 5, 1),
+             "Extreme eccentric overload. Shown to reduce hamstring injury rates (Al Attar 2017). "
+             "Very high force demands. Requires significant strength — modify with band assist. "
+             "High muscle damage potential — use low volume (2 sets max).",
+             False, 3, "descending", "full_hamstring", 5, 0),
 
             # ─── GLUTES ───
             ("Hip Thrust", "Legs", "Glutes", "Barbell", "Intermediate", True,
@@ -1370,9 +1405,10 @@ class DatabaseManager:
 
             # ─── BICEPS ───
             ("Incline Dumbbell Curl", "Pull", "Biceps", "Dumbbell", "Intermediate", False,
-             "Shoulder extension + elbow flexion = biceps long head at maximal stretch. "
-             "The most effective biceps exercise for stretch-mediated hypertrophy (Pedrosa 2023).",
-             True, 6, "bell", "long_head", 9, 1),
+             "Shoulder extension avoids active insufficiency on the biceps long head, allowing "
+             "it to produce maximal force through full ROM. Superior to standing curls for long "
+             "head development due to biomechanical advantage, not 'stretch.'",
+             True, 6, "bell", "long_head", 9, 0),
             ("Preacher Curl", "Pull", "Biceps", "Dumbbell", "Beginner", False,
              "Shoulder flexion shortens the long head, biasing the short head. "
              "Peak tension at mid-range. Good for short head width.",
@@ -1384,9 +1420,10 @@ class DatabaseManager:
 
             # ─── TRICEPS ───
             ("Overhead Cable Triceps Extension", "Push", "Triceps", "Cable", "Intermediate", False,
-             "Shoulder flexion stretches the long head — the largest triceps head. "
-             "Stretch-mediated hypertrophy. Constant cable tension. Best overall triceps exercise.",
-             True, 7, "constant", "long_head", 9, 1),
+             "Shoulder flexion avoids active insufficiency on the long head (largest triceps "
+             "head), allowing it to produce maximal force. Constant cable tension. The single "
+             "best triceps exercise for overall mass because it loads the head that pushdowns miss.",
+             True, 7, "constant", "long_head", 9, 0),
             ("Cable Pushdown", "Push", "Triceps", "Cable", "Beginner", False,
              "Shoulder in neutral = long head shortened, biasing lateral and medial heads. "
              "Good complement to overhead work but NOT a replacement for it.",
@@ -1402,9 +1439,206 @@ class DatabaseManager:
              "Essential — standing raises alone miss the soleus.",
              False, 10, "ascending", "soleus", 9, 0),
             ("Standing Calf Raise", "Legs", "Calves", "Machine", "Beginner", False,
-             "Knee extension loads the gastrocnemius. Go deep into the stretch at bottom. "
-             "Use 5-8 second eccentrics for optimal stimulus.",
+             "Knee extension allows gastrocnemius to produce maximal force (avoids active "
+             "insufficiency). Full ROM with controlled eccentrics.",
              False, 9, "ascending", "gastrocnemius", 8, 1),
+
+            # ─── CHEST — Angle Variants ───
+            ("30° Incline DB Press", "Push", "Chest", "Dumbbell", "Intermediate", True,
+             "30-degree incline targets clavicular (upper) pec fibers. DB allows independent "
+             "arm movement and greater ROM than barbell. Bell curve resistance with peak "
+             "tension at mid-range. Moderate stability demand keeps SFR reasonable.",
+             True, 5, "bell", "clavicular_upper", 7, 0),
+            ("Low Incline DB Press", "Push", "Chest", "Dumbbell", "Intermediate", True,
+             "15-20 degree incline targets the transition zone between upper and mid pec. "
+             "Minimal anterior delt involvement compared to steeper inclines. Each arm "
+             "works independently through full ROM.",
+             True, 5, "bell", "upper_mid_transition", 7, 0),
+            ("Decline DB Press", "Push", "Chest", "Dumbbell", "Intermediate", True,
+             "Decline angle biases lower sternal pec fibers. Reduced shoulder stress "
+             "compared to flat and incline pressing. Good option for lifters with "
+             "shoulder impingement issues. Each arm loads independently.",
+             True, 5, "bell", "sternal_lower", 7, 0),
+            ("Machine Chest Press", "Push", "Chest", "Machine", "Beginner", True,
+             "Maximum stability allows full neural drive to pecs with zero stabilizer "
+             "demand. Constant tension on most models. One of the highest SFR compound "
+             "chest exercises available, minimal systemic fatigue.",
+             False, 10, "constant", "sternal_mid", 9, 0),
+            ("Smith Machine Incline Press", "Push", "Chest", "Smith Machine", "Intermediate", True,
+             "Fixed bar path provides high stability for safe overloading of clavicular "
+             "pec fibers. Ascending resistance profile. Good for progressive overload "
+             "when a spotter is unavailable.",
+             False, 9, "ascending", "clavicular_upper", 7, 0),
+
+            # ─── BACK — More Variants ───
+            ("Single Arm Cable Row", "Pull", "Back", "Cable", "Intermediate", True,
+             "Unilateral horizontal pull with constant cable tension. Addresses side-to-side "
+             "imbalances. Allows slight trunk rotation for full scapular retraction. "
+             "Great SFR for mid-back development.",
+             True, 7, "constant", "mid_back", 8, 0),
+            ("Single Arm Lat Pulldown", "Pull", "Back", "Cable", "Intermediate", True,
+             "Unilateral vertical pull addressing lat imbalances. Constant cable tension "
+             "through full ROM. Greater ROM per side than bilateral pulldown. Focuses "
+             "neural drive on one lat at a time.",
+             True, 7, "constant", "full_lat", 8, 0),
+            ("Prone Incline DB Row", "Pull", "Back", "Dumbbell", "Beginner", True,
+             "Chest supported on incline bench removes lower back and spinal erector demand "
+             "entirely. All force production goes to lats, rhomboids, and rear delts. "
+             "Very high SFR. Each arm works independently.",
+             True, 8, "bell", "mid_back", 9, 0),
+            ("Machine Row", "Pull", "Back", "Machine", "Beginner", True,
+             "Highest stability horizontal pull. Fixed path removes all stabilizer demand. "
+             "Full neural drive to target muscles. Excellent SFR for back hypertrophy, "
+             "comparable to chest-supported rows.",
+             False, 10, "constant", "mid_back", 9, 0),
+            ("Meadows Row", "Pull", "Back", "Barbell", "Advanced", True,
+             "Landmine single-arm row with a unique pulling angle. Perpendicular stance "
+             "to the bar changes the line of resistance. Targets the lower lats and teres "
+             "major from an angle other rows miss. Moderate stability demand.",
+             True, 5, "bell", "lower_lat", 6, 0),
+
+            # ─── SHOULDERS — Anterior ───
+            ("Machine Shoulder Press", "Push", "Shoulders", "Machine", "Beginner", True,
+             "High stability overhead press, primarily anterior delt dominant (60-70% of "
+             "force production even with wide grip, per Campos & Silva 2014). Ascending "
+             "resistance. Safe overloading without spotter. High SFR for anterior delt.",
+             False, 10, "ascending", "anterior_delt", 9, 0),
+            ("Smith Machine Overhead Press", "Push", "Shoulders", "Smith Machine", "Intermediate", True,
+             "Fixed bar path allows safe heavy overloading of anterior delts. Ascending "
+             "resistance. Removes stabilizer demand compared to free weight overhead press. "
+             "Good for progressive overload on pressing.",
+             False, 9, "ascending", "anterior_delt", 8, 0),
+            ("DB Front Raise", "Push", "Shoulders", "Dumbbell", "Beginner", False,
+             "Anterior delt isolation. Bell curve resistance. Low priority exercise since "
+             "pressing movements already heavily load the anterior delt. Only useful if "
+             "anterior delt is specifically lagging.",
+             True, 6, "bell", "anterior_delt", 7, 0),
+
+            # ─── SHOULDERS — Medial ───
+            ("Machine Lateral Raise", "Push", "Shoulders", "Machine", "Beginner", False,
+             "Highest SFR medial delt exercise when available. Constant tension through "
+             "full ROM eliminates the dead zone at the bottom that DB lateral raises have. "
+             "Maximum stability, zero momentum possible.",
+             False, 10, "constant", "lateral_delt", 10, 0),
+            ("Behind-the-Body Cable Lateral Raise", "Push", "Shoulders", "Cable", "Intermediate", False,
+             "Cable passes behind the body, shifting the resistance curve to load the "
+             "medial delt harder at the start of ROM where DB lateral raises have zero "
+             "tension. Single arm, constant tension. Superior resistance profile to "
+             "standard cable lateral raise.",
+             True, 7, "constant", "lateral_delt", 9, 0),
+
+            # ─── SHOULDERS — Posterior ───
+            ("Cable Rear Delt Fly", "Pull", "Shoulders", "Cable", "Beginner", False,
+             "Constant cable tension throughout ROM for rear delt. When performed with "
+             "slight external rotation, minimizes trap dominance and isolates the posterior "
+             "deltoid effectively. Can be done single or dual arm.",
+             True, 8, "constant", "rear_delt", 9, 0),
+            ("Prone Incline Rear Delt Raise", "Pull", "Shoulders", "Dumbbell", "Beginner", False,
+             "Chest on incline bench removes momentum and trunk movement entirely. Isolates "
+             "rear delt through horizontal abduction. Bell curve resistance. Controlled "
+             "tempo eliminates trap compensation.",
+             True, 8, "bell", "rear_delt", 9, 0),
+
+            # ─── BICEPS — Cable/EZ Variants ───
+            ("EZ Bar Curl", "Pull", "Biceps", "Barbell", "Beginner", False,
+             "Cambered bar reduces wrist strain from full supination, allowing heavier "
+             "loading than straight bar. Targets both biceps heads. Bell curve resistance "
+             "with peak tension at mid-range.",
+             False, 6, "bell", "full_biceps", 8, 0),
+            ("EZ Bar Cable Curl", "Pull", "Biceps", "Cable", "Beginner", False,
+             "EZ attachment on low cable combines wrist-friendly grip angle with constant "
+             "cable tension. Eliminates the dead zone at top and bottom that free weight "
+             "curls have. Good SFR for biceps mass.",
+             False, 8, "constant", "full_biceps", 9, 0),
+            ("Hammer Cable Curl", "Pull", "Biceps", "Cable", "Beginner", False,
+             "Rope attachment with neutral grip emphasizes brachialis and brachioradialis. "
+             "Constant cable tension. Brachialis development pushes the biceps peak up for "
+             "a wider arm appearance. Also builds forearm thickness.",
+             False, 8, "constant", "brachialis", 9, 0),
+            ("Single Arm Cable Curl", "Pull", "Biceps", "Cable", "Beginner", False,
+             "Unilateral cable curl with constant tension throughout ROM. Addresses bicep "
+             "imbalances. Cable angle can be adjusted to shift peak tension to different "
+             "parts of the ROM for varied stimulus.",
+             True, 7, "constant", "full_biceps", 9, 0),
+            ("Bayesian Cable Curl", "Pull", "Biceps", "Cable", "Intermediate", False,
+             "Behind-body single arm cable curl with shoulder in extension. This position "
+             "avoids active insufficiency on the biceps long head, allowing maximal force "
+             "production through full ROM. Best cable curl variant for long head.",
+             True, 7, "constant", "long_head", 9, 0),
+            ("Spider Curl", "Pull", "Biceps", "Dumbbell", "Intermediate", False,
+             "Chest against incline bench (prone). Bell curve resistance with peak tension "
+             "at mid-range. Shoulder flexion shortens the long head, biasing the short head. "
+             "Eliminates momentum completely.",
+             True, 8, "bell", "short_head", 9, 0),
+            ("Concentration Curl", "Pull", "Biceps", "Dumbbell", "Beginner", False,
+             "Seated single arm curl braced against inner thigh. Eliminates momentum and "
+             "body english entirely. Shoulder flexion biases the short head. Good for "
+             "mind-muscle connection and addressing imbalances.",
+             True, 7, "bell", "short_head", 8, 0),
+
+            # ─── TRICEPS — More Variants ───
+            ("Single Arm Overhead Cable Extension", "Push", "Triceps", "Cable", "Intermediate", False,
+             "Unilateral overhead extension addressing tricep imbalances. Shoulder flexion "
+             "avoids active insufficiency on the long head, allowing maximal force production "
+             "per arm. Constant cable tension throughout ROM.",
+             True, 7, "constant", "long_head", 9, 0),
+            ("EZ Bar Skull Crusher", "Push", "Triceps", "Barbell", "Intermediate", False,
+             "Lying EZ bar extension loading triceps through elbow extension. Loads all "
+             "three heads. EZ bar reduces wrist strain. Mild shoulder flexion at bottom "
+             "provides some long head contribution. Moderate stability demand.",
+             False, 6, "bell", "full_triceps", 7, 0),
+            ("Cable Kickback", "Push", "Triceps", "Cable", "Beginner", False,
+             "Single arm cable kickback with constant tension. Lateral head emphasis when "
+             "performed with full elbow extension against resistance. Useful accessory "
+             "for lateral head detail work.",
+             True, 7, "constant", "lateral_head", 8, 0),
+            ("Triceps Dip Machine", "Push", "Triceps", "Machine", "Beginner", True,
+             "High stability dip with adjustable resistance. Reduces shoulder stress "
+             "compared to bodyweight dips. Loads all three triceps heads. Ascending "
+             "resistance profile. Good SFR for triceps compound work.",
+             False, 10, "ascending", "full_triceps", 8, 0),
+            ("JM Press", "Push", "Triceps", "Barbell", "Advanced", True,
+             "Hybrid between close-grip bench press and skull crusher. Very high force "
+             "production on all three triceps heads. Advanced movement requiring excellent "
+             "elbow tracking. High mechanical tension per rep.",
+             False, 5, "ascending", "full_triceps", 6, 0),
+            ("Rope Pushdown", "Push", "Triceps", "Cable", "Beginner", False,
+             "Rope attachment allows wrist pronation at the bottom, increasing lateral "
+             "head recruitment. Constant cable tension. Shoulder neutral position biases "
+             "lateral and medial heads over long head.",
+             False, 8, "constant", "lateral_head", 8, 0),
+
+            # ─── LEGS — Machine & Unilateral Variants ───
+            ("Pendulum Squat", "Legs", "Quads", "Machine", "Intermediate", True,
+             "Machine squat with pendulum arc path. Very high stability removes all balance "
+             "demand. Ascending resistance matching quad strength curve. Quad dominant with "
+             "minimal spinal load. Better SFR than barbell squat for hypertrophy.",
+             False, 9, "ascending", "full_quad", 9, 0),
+            ("Belt Squat", "Legs", "Quads", "Machine", "Intermediate", True,
+             "Load hangs from a belt at the hips, removing spinal compression entirely. "
+             "Quad and glute focus without CNS cost of spinal loading. Excellent SFR. "
+             "Allows high quad volume without accumulating back fatigue.",
+             False, 8, "ascending", "full_quad", 9, 0),
+            ("Single Leg Leg Press", "Legs", "Quads", "Machine", "Intermediate", True,
+             "Unilateral leg press addressing quad and glute imbalances between legs. "
+             "Machine provides moderate stability while each leg works independently. "
+             "High load capacity per leg. Ascending resistance.",
+             True, 8, "ascending", "vastus_group", 7, 0),
+            ("Single Leg Leg Extension", "Legs", "Quads", "Machine", "Beginner", False,
+             "Unilateral leg extension isolating each quad independently. Identifies and "
+             "corrects side-to-side strength imbalances. Same bell curve resistance as "
+             "bilateral variant. Full rectus femoris loading per leg.",
+             True, 10, "bell", "rectus_femoris", 10, 0),
+            ("Single Leg Seated Leg Curl", "Legs", "Hamstrings", "Machine", "Beginner", False,
+             "Unilateral seated leg curl addressing hamstring imbalances. Seated position "
+             "(hips flexed) avoids active insufficiency for maximal hamstring force per rep. "
+             "Constant tension. Each leg works independently.",
+             True, 10, "constant", "full_hamstring", 10, 0),
+            ("Leg Press Calf Raise", "Legs", "Calves", "Machine", "Beginner", False,
+             "Calf raises on the leg press platform. Allows very high load capacity. "
+             "Straight knee position targets gastrocnemius (avoids active insufficiency). "
+             "High stability from the machine sled.",
+             False, 9, "ascending", "gastrocnemius", 8, 0),
         ]
 
         for ex in exercises:
@@ -1418,6 +1652,227 @@ class DatabaseManager:
             except (sqlite3.IntegrityError, sqlite3.OperationalError):
                 pass
         self.conn.commit()
+
+    def seed_workout_templates(self):
+        """
+        Evidence-based protocols designed around hypertrophy PRINCIPLES, not body parts.
+
+        Design rationale:
+        - Exercise selection prioritizes HIGH SFR movements (machines/cables over
+          free weights where possible — Beardsley 2020)
+        - Force production optimization: exercises chosen for maximal motor unit
+          recruitment via biomechanical advantage (avoiding active insufficiency)
+        - 2-3 hard sets per exercise (Krieger 2010 dose-response — diminishing
+          returns beyond set 3 in a single session)
+        - Regional coverage: each muscle hit from multiple force-length positions
+          across the week (not in one session)
+        - Active insufficiency avoided: seated leg curl over lying, overhead
+          triceps over pushdown for long head
+        - Systemic fatigue managed: high-SFR isolations placed after compounds,
+          no redundant compound stacking (e.g., no squat + leg press same day)
+        - Volume distributed across frequency (2x/week per muscle) rather than
+          crammed into one giant session
+        """
+        cursor = self.conn.cursor()
+        count = cursor.execute("SELECT count(*) FROM workout_templates WHERE user_id IS NULL").fetchone()[0]
+        if count > 0:
+            return
+
+        def get_ex_id(name):
+            row = cursor.execute("SELECT id FROM exercises WHERE name = ?", (name,)).fetchone()
+            return row[0] if row else None
+
+        templates = [
+            # ─────────────────────────────────────────────
+            # PROTOCOL 1: Upper A — Compound Force Production
+            # ─────────────────────────────────────────────
+            ("Upper A — Max Force Compounds",
+             "PRINCIPLE: Mechanical tension through high-force compound movements. "
+             "Flat DB bench allows full ROM with high load and explosive concentric "
+             "intent. Chest-supported row removes spinal erector bottleneck so all "
+             "force goes to lats/rhomboids. Overhead DB press for anterior delts — "
+             "moderate stability demand but high force output. Incline curl avoids "
+             "biceps long head active insufficiency. Overhead triceps extension lets "
+             "the long head produce maximal force (shoulder flexion avoids active "
+             "insufficiency). 2-3 hard sets, explosive concentrics, 0-2 RIR.",
+             [
+                 ("Flat DB Bench Press", 3),
+                 ("Chest-Supported T-Bar Row", 3),
+                 ("Overhead Press (DB)", 3),
+                 ("Cable Lateral Raise", 3),
+                 ("Incline Dumbbell Curl", 3),
+                 ("Overhead Cable Triceps Extension", 3),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 2: High-SFR Upper B
+            # ─────────────────────────────────────────────
+            ("Upper B — High SFR / Low Fatigue",
+             "PRINCIPLE: Maximize stimulus-to-fatigue ratio. Every movement is machine "
+             "or cable — maximal stability means 100% of neural drive goes to target "
+             "muscles with near-zero systemic cost. This session can be recovered from "
+             "quickly, enabling higher weekly frequency. Pec deck for chest (constant "
+             "tension, zero joint stress). Lat pulldown for width. Cable row for "
+             "thickness. Cable lateral raise for side delts (superior resistance "
+             "profile vs DB — no dead zone at bottom). Preacher curl for short head. "
+             "Cable pushdown for lateral/medial heads. 2-3 sets, 0-1 RIR.",
+             [
+                 ("Pec Deck / Machine Fly", 3),
+                 ("Lat Pulldown (Neutral Close)", 3),
+                 ("Seated Cable Row", 3),
+                 ("Cable Lateral Raise", 3),
+                 ("Reverse Pec Deck", 3),
+                 ("Preacher Curl", 2),
+                 ("Cable Pushdown", 2),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 3: Lower A — Quad/Glute Bias
+            # ─────────────────────────────────────────────
+            ("Lower A — Quad & Glute Focus",
+             "PRINCIPLE: Quad hypertrophy requires both the vastus group AND the rectus "
+             "femoris, which are loaded differently. Hack squat (ascending resistance, "
+             "high stability) for vastus lateralis/medialis — NOT barbell squat, because "
+             "the squat's limiting factor is spinal erector fatigue, not quad stimulus. "
+             "Leg extension for rectus femoris (biarticular head that only gets fully "
+             "loaded in open-chain knee extension). Hip thrust for glutes at shortened "
+             "position (ascending profile matches glute strength curve). Seated calf "
+             "raise for soleus (60% of calf mass, missed by standing raises). "
+             "2-3 sets, 1-2 RIR on compounds, 0-1 RIR on isolations.",
+             [
+                 ("Hack Squat", 3),
+                 ("Leg Extension", 3),
+                 ("Hip Thrust", 3),
+                 ("Seated Leg Curl", 3),
+                 ("Seated Calf Raise", 3),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 4: Lower B — Hamstring/Posterior Bias
+            # ─────────────────────────────────────────────
+            ("Lower B — Posterior Chain & Force Optimization",
+             "PRINCIPLE: Hamstring hypertrophy requires BOTH knee flexion AND hip "
+             "extension exercises. The key nuance is FORCE PRODUCTION, not length. "
+             "Seated leg curl (hips flexed) avoids active insufficiency — the muscle "
+             "can contract HARDER, producing more force per rep than lying curl. "
+             "RDL is a high-force hip hinge but costs massive systemic fatigue "
+             "(spinal erectors) — placed FIRST when CNS is fresh, limited to 2-3 "
+             "sets. Leg press for quad maintenance. Standing calf raise for "
+             "gastrocnemius (straight knee avoids active insufficiency). Cable "
+             "pull-through for glutes with constant tension.",
+             [
+                 ("Romanian Deadlift", 3),
+                 ("Seated Leg Curl", 3),
+                 ("Leg Press", 3),
+                 ("Cable Pull-Through", 2),
+                 ("Standing Calf Raise", 3),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 5: Shoulder/Arm Specialization
+            # ─────────────────────────────────────────────
+            ("Arms & Delts — Regional Force Coverage",
+             "PRINCIPLE: Regional hypertrophy via maximizing force production for each "
+             "muscle head. Incline curl puts the biceps long head in a position where "
+             "it can contract hardest (avoids active insufficiency). Preacher curl "
+             "biases the short head. Overhead triceps extension lets the long head "
+             "produce maximal force (pushdowns cannot do this — the long head is in "
+             "active insufficiency with shoulder neutral). Cable lateral raises have "
+             "constant tension — DB raises have zero resistance in the bottom 40% of "
+             "ROM, wasting half the set. Rear delts need direct work (reverse pec deck) "
+             "because they get minimal activation from rows despite common belief. All "
+             "isolations, all high SFR, 0-1 RIR. Explosive concentrics on every rep.",
+             [
+                 ("Incline Dumbbell Curl", 3),
+                 ("Preacher Curl", 2),
+                 ("Overhead Cable Triceps Extension", 3),
+                 ("Cable Pushdown", 2),
+                 ("Cable Lateral Raise", 3),
+                 ("Reverse Pec Deck", 3),
+                 ("Face Pull", 2),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 6: Full Body — Minimum Effective Volume
+            # ─────────────────────────────────────────────
+            ("Full Body MEV — 3x/Week",
+             "PRINCIPLE: Minimum Effective Volume (Israetel). Every muscle hit with "
+             "just 2 sets per session, 3x/week = 6 sets/week/muscle. This is the floor "
+             "for measurable hypertrophy. Each exercise is the single HIGHEST SFR "
+             "option for its target muscle — machines and cables only. Zero free weights, "
+             "zero wasted recovery capacity. This is not a 'light' session — each set "
+             "is taken to 0-1 RIR. The low volume per session means recovery is fast, "
+             "enabling the high frequency that keeps MPS elevated more often "
+             "(Schoenfeld 2016). Ideal for beginners, deload phases, or resensitization "
+             "blocks where you want to restore mTOR sensitivity.",
+             [
+                 ("Hack Squat", 2),
+                 ("Seated Leg Curl", 2),
+                 ("Pec Deck / Machine Fly", 2),
+                 ("Lat Pulldown (Wide)", 2),
+                 ("Cable Lateral Raise", 2),
+                 ("Seated Calf Raise", 2),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 7: Chest/Back Antagonist Pairing
+            # ─────────────────────────────────────────────
+            ("Chest + Back — Antagonist Supersets",
+             "PRINCIPLE: Antagonist pairing. Chest and back are biomechanical opposites "
+             "— training one potentiates the other via reciprocal inhibition. Supersetting "
+             "a press with a row (30-60s rest between) maintains performance on both "
+             "while cutting session time nearly in half. Exercise selection: pec deck "
+             "paired with chest-supported row (both high stability, constant tension). "
+             "Incline DB press paired with lat pulldown (both target upper fibers). "
+             "Cable fly paired with straight-arm pulldown (both high-SFR isolations). "
+             "No barbell movements — stability is intentionally maximized so you can "
+             "push hard on both without CNS bottleneck.",
+             [
+                 ("Pec Deck / Machine Fly", 3),
+                 ("Chest-Supported T-Bar Row", 3),
+                 ("Incline DB Press", 3),
+                 ("Lat Pulldown (Wide)", 3),
+                 ("Cable Fly (High-to-Low)", 2),
+                 ("Straight Arm Pulldown", 2),
+             ]),
+
+            # ─────────────────────────────────────────────
+            # PROTOCOL 8: Accumulation Block — Volume Push
+            # ─────────────────────────────────────────────
+            ("Accumulation Block — Upper (Wk 3-4 Meso)",
+             "PRINCIPLE: Periodized mesocycle. This is the HIGH VOLUME template for "
+             "weeks 3-4 of an accumulation block, when you are pushing toward MRV. "
+             "3 sets per exercise across 7 exercises = 21 sets upper body in one session. "
+             "This is NOT sustainable long-term — it is designed to be run for 1-2 weeks "
+             "before a deload drops volume to ~50%. Exercise selection: same high-SFR "
+             "movements from Upper A/B but combined into one dense session. RIR 1-2 to "
+             "manage fatigue at this volume. If performance drops (weight/reps decline), "
+             "you have overshot MRV and need to deload immediately.",
+             [
+                 ("Pec Deck / Machine Fly", 3),
+                 ("Incline DB Press", 3),
+                 ("Lat Pulldown (Neutral Close)", 3),
+                 ("Chest-Supported T-Bar Row", 3),
+                 ("Cable Lateral Raise", 3),
+                 ("Incline Dumbbell Curl", 3),
+                 ("Overhead Cable Triceps Extension", 3),
+             ]),
+        ]
+
+        for name, desc, exercises in templates:
+            cursor.execute(
+                "INSERT INTO workout_templates (user_id, name, description) VALUES (NULL, ?, ?)",
+                (name, desc))
+            tid = cursor.lastrowid
+            for order, (ex_name, sets) in enumerate(exercises):
+                ex_id = get_ex_id(ex_name)
+                if ex_id:
+                    cursor.execute(
+                        "INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets) "
+                        "VALUES (?, ?, ?, ?)", (tid, ex_id, order, sets))
+
+        self.conn.commit()
+
     def get_workout_templates(self, user_id=None):
         """Fetch system templates and user-created ones"""
         try:

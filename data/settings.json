@@ -1,0 +1,5 @@
+{
+    "usda_api_key": "",
+    "ollama_model": "qwen3:1.7b",
+    "ollama_url": "http://localhost:11434"
+}

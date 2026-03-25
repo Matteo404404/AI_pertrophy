@@ -1,16 +1,43 @@
 """
-Scientific Hypertrophy Trainer - Assessment Interface v2.1 (FIXED)
-- Fixed: Added missing 'clear_content' method
-- Features: Dark Theme, Detailed Results Review
+Scientific Hypertrophy Trainer - Assessment Interface (AI COACH ENABLED)
+- Modernized UI with smooth cards and clean spacing.
+- Dynamic LLM Coaching: Evaluates wrong answers and generates live feedback via Ollama.
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
-    QProgressBar, QButtonGroup, QMessageBox, QTextEdit, QScrollArea,
-    QGridLayout, QSizePolicy
+    QProgressBar, QButtonGroup, QMessageBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QFont, QCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtGui import QCursor
+import requests
+
+class AICoachWorker(QThread):
+    finished = pyqtSignal(str)
+    
+    def __init__(self, question, user_ans, correct_ans):
+        super().__init__()
+        self.question = question
+        self.user_ans = user_ans
+        self.correct_ans = correct_ans
+
+    def run(self):
+        prompt = (f"Act as an expert hypertrophy coach. The user was asked: '{self.question}'. "
+                  f"They answered: '{self.user_ans}', but the correct answer is '{self.correct_ans}'. "
+                  "In exactly 2 supportive, educational sentences, explain why their answer is wrong "
+                  "and clarify the correct concept. Keep it concise.")
+        try:
+            resp = requests.post(
+                "http://localhost:11434/api/generate",
+                json={"model": "qwen3:1.7b", "prompt": prompt, "stream": False},
+                timeout=15
+            )
+            if resp.status_code == 200:
+                self.finished.emit(resp.json().get("response", "").strip())
+            else:
+                self.finished.emit("")
+        except:
+            self.finished.emit("")
 
 class AssessmentWidget(QWidget):
     assessment_completed = pyqtSignal(dict)
@@ -20,39 +47,40 @@ class AssessmentWidget(QWidget):
         self.assessment_engine = assessment_engine
         self.user_manager = user_manager
         self.current_assessment = None
-        
+        self.workers =[]  # Keep references to prevent garbage collection
         self.init_ui()
-        self.refresh_tiers()
     
     def init_ui(self):
-        # Global Layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(30, 30, 30, 30)
+        self.main_layout.setContentsMargins(40, 40, 40, 40)
         self.main_layout.setSpacing(20)
         
-        # Header (Fixed at top)
         self.header_frame = QFrame()
         self.header_layout = QVBoxLayout(self.header_frame)
         self.lbl_title = QLabel("KNOWLEDGE ASSESSMENT")
-        self.lbl_title.setStyleSheet("font-size: 24px; font-weight: 900; color: #89b4fa; letter-spacing: 2px;")
-        self.lbl_subtitle = QLabel("Validate your understanding of hypertrophy principles to unlock advanced tracking features.")
-        self.lbl_subtitle.setStyleSheet("color: #a6adc8; font-size: 14px;")
+        self.lbl_title.setStyleSheet("font-size: 28px; font-weight: 900; color: #89b4fa; letter-spacing: 1px;")
+        self.lbl_subtitle = QLabel("Validate your understanding to unlock advanced ML tracking.")
+        self.lbl_subtitle.setStyleSheet("color: #a6adc8; font-size: 15px;")
         self.header_layout.addWidget(self.lbl_title)
         self.header_layout.addWidget(self.lbl_subtitle)
         self.main_layout.addWidget(self.header_frame)
         
-        # Dynamic Content Area
         self.content_area = QFrame()
         self.content_layout = QVBoxLayout(self.content_area)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.addWidget(self.content_area)
         
-        # Initialize with Tier Selection
+        self.refresh_tiers()
+
+    def clear_content(self):
+        while self.content_layout.count():
+            child = self.content_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+    def refresh_tiers(self):
         self.show_tier_selection()
 
-    # ==========================================
-    # VIEW 1: TIER SELECTION
-    # ==========================================
     def show_tier_selection(self):
         self.clear_content()
         self.lbl_title.setText("SELECT CLEARANCE LEVEL")
@@ -65,13 +93,12 @@ class AssessmentWidget(QWidget):
         layout = QVBoxLayout(container)
         layout.setSpacing(20)
         
-        # Get User Status
         tier_status = self.user_manager.get_tier_status()
         tiers = tier_status.get('tiers', [])
         
-        descriptions = [
+        descriptions =[
             "Fundamentals: Volume, Frequency, and Progressive Overload basics.",
-            "Intermediate: Effective Reps, Length-Tension Relationships, and Fatigue Management.",
+            "Intermediate: Effective Reps, Force Production, and Fatigue Management.",
             "Advanced: Mesocycles, MRV/MEV, and Resensitization Phases."
         ]
         
@@ -86,75 +113,48 @@ class AssessmentWidget(QWidget):
 
     def create_tier_card(self, level, data, desc):
         card = QFrame()
-        
         if data['completed']:
-            border_col = "#a6e3a1"
-            status_txt = "✅ COMPLETED"
-            bg_col = "rgba(166, 227, 161, 0.05)"
-            btn_txt = "Review Concepts"
-            btn_style = "background-color: #313244; color: #a6e3a1; border: 1px solid #a6e3a1;"
-        elif data['accessible']:
-            border_col = "#89b4fa"
-            status_txt = "🔓 AVAILABLE"
-            bg_col = "rgba(137, 180, 250, 0.1)"
-            btn_txt = "Start Assessment"
-            btn_style = "background-color: #89b4fa; color: #1e1e2e; font-weight: bold;"
+            b_col, s_txt, bg_col, b_txt = "#a6e3a1", "✅ COMPLETED", "rgba(166, 227, 161, 0.05)", "Review Concepts"
+        elif data['unlocked']:
+            b_col, s_txt, bg_col, b_txt = "#89b4fa", "🔓 AVAILABLE", "rgba(137, 180, 250, 0.1)", "Start Assessment"
         else:
-            border_col = "#45475a"
-            status_txt = "🔒 LOCKED"
-            bg_col = "rgba(69, 71, 90, 0.3)"
-            btn_txt = "Locked"
-            btn_style = "background-color: transparent; color: #45475a; border: 1px solid #45475a;"
+            b_col, s_txt, bg_col, b_txt = "#45475a", "🔒 LOCKED", "rgba(69, 71, 90, 0.2)", "Locked"
 
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {bg_col};
-                border: 1px solid {border_col};
-                border-radius: 12px;
-            }}
-        """)
-        
+        card.setStyleSheet(f"background-color: {bg_col}; border: 1px solid {b_col}; border-radius: 12px;")
         layout = QHBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(25, 25, 25, 25)
         
-        info_layout = QVBoxLayout()
+        i_layout = QVBoxLayout()
         title = QLabel(f"TIER {level + 1}: {data['name'].upper()}")
-        title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {border_col};")
-        description = QLabel(desc)
-        description.setWordWrap(True)
-        description.setStyleSheet("color: #cdd6f4; margin-top: 5px;")
+        title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {b_col}; border: none;")
+        desc_lbl = QLabel(desc)
+        desc_lbl.setStyleSheet("color: #cdd6f4; margin-top: 5px; border: none; background: transparent;")
+        i_layout.addWidget(title)
+        i_layout.addWidget(desc_lbl)
+        layout.addLayout(i_layout, stretch=1)
         
-        info_layout.addWidget(title)
-        info_layout.addWidget(description)
-        layout.addLayout(info_layout, stretch=1)
+        a_layout = QVBoxLayout()
+        s_lbl = QLabel(s_txt)
+        s_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        s_lbl.setStyleSheet(f"font-weight: bold; font-size: 12px; color: {b_col}; border: none; background: transparent;")
         
-        action_layout = QVBoxLayout()
-        status_lbl = QLabel(status_txt)
-        status_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        status_lbl.setStyleSheet(f"font-weight: bold; font-size: 12px; color: {border_col}; margin-bottom: 10px;")
-        
-        btn = QPushButton(btn_txt)
+        btn = QPushButton(b_txt)
         btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn.setStyleSheet(f"QPushButton {{ {btn_style} padding: 8px 20px; border-radius: 6px; }}")
-        
-        if data['accessible']:
-            btn.clicked.connect(lambda checked, l=level: self.start_assessment(l))
+        if data['unlocked']:
+            btn.setStyleSheet(f"background-color: {b_col}; color: #1e1e2e; font-weight: bold; padding: 10px 20px; border-radius: 6px;")
+            btn.clicked.connect(lambda c, l=level: self.start_assessment(l))
         else:
+            btn.setStyleSheet("background-color: transparent; color: #45475a; border: 1px solid #45475a; padding: 10px 20px; border-radius: 6px;")
             btn.setEnabled(False)
             
-        action_layout.addWidget(status_lbl)
-        action_layout.addWidget(btn)
-        layout.addLayout(action_layout)
-        
+        a_layout.addWidget(s_lbl)
+        a_layout.addWidget(btn)
+        layout.addLayout(a_layout)
         return card
 
-    # ==========================================
-    # VIEW 2: ACTIVE QUESTION
-    # ==========================================
     def start_assessment(self, tier_level):
         try:
-            info = self.assessment_engine.start_assessment(tier_level)
-            self.current_assessment = info
+            self.current_assessment = self.assessment_engine.start_assessment(tier_level)
             self.load_question_view()
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
@@ -162,7 +162,6 @@ class AssessmentWidget(QWidget):
     def load_question_view(self):
         self.clear_content()
         question = self.assessment_engine.get_current_question()
-        
         if not question:
             self.finish_assessment()
             return
@@ -172,46 +171,38 @@ class AssessmentWidget(QWidget):
         progress = QProgressBar()
         progress.setRange(0, question['total_questions'])
         progress.setValue(question['question_number'] - 1)
-        progress.setStyleSheet("QProgressBar { background-color: #313244; border-radius: 4px; height: 8px; } QProgressBar::chunk { background-color: #89b4fa; border-radius: 4px; }")
+        progress.setStyleSheet("QProgressBar { background: #313244; border-radius: 4px; height: 6px; } QProgressBar::chunk { background: #89b4fa; border-radius: 4px; }")
         self.content_layout.addWidget(progress)
         
-        progress_lbl = QLabel(f"Question {question['question_number']} / {question['total_questions']}")
-        progress_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        progress_lbl.setStyleSheet("color: #a6adc8; font-weight: bold; margin-bottom: 20px;")
-        self.content_layout.addWidget(progress_lbl)
-        
         q_card = QFrame()
-        q_card.setStyleSheet("background-color: #262639; border-radius: 16px; padding: 20px;")
+        q_card.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244; padding: 30px;")
         q_layout = QVBoxLayout(q_card)
-        
         q_text = QLabel(question['question'])
         q_text.setWordWrap(True)
-        q_text.setStyleSheet("font-size: 22px; font-weight: bold; color: white; line-height: 1.4;")
+        q_text.setStyleSheet("font-size: 20px; font-weight: bold; color: white; line-height: 1.4; border: none;")
         q_layout.addWidget(q_text)
         self.content_layout.addWidget(q_card)
-        self.content_layout.addSpacing(20)
         
         self.btn_group = QButtonGroup()
         self.btn_group.setExclusive(True)
-        
-        for i, option in enumerate(question['options']):
+        for option in question['options']:
             btn = QPushButton(option['text'])
             btn.setCheckable(True)
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.setStyleSheet("""
-                QPushButton { background-color: #1e1e2e; border: 2px solid #313244; border-radius: 12px; padding: 20px; text-align: left; font-size: 16px; color: #cdd6f4; }
-                QPushButton:hover { border-color: #89b4fa; background-color: #262639; }
-                QPushButton:checked { background-color: #89b4fa; color: #1e1e2e; border-color: #89b4fa; font-weight: bold; }
+                QPushButton { background: #262639; border: 1px solid #313244; border-radius: 8px; padding: 18px; text-align: left; font-size: 15px; color: #cdd6f4; margin-top: 10px;}
+                QPushButton:hover { border-color: #89b4fa; }
+                QPushButton:checked { background: #89b4fa; color: #1e1e2e; font-weight: bold; }
             """)
             self.btn_group.addButton(btn)
             self.content_layout.addWidget(btn)
             
         self.content_layout.addStretch()
         
-        submit_btn = QPushButton("Submit Answer")
+        submit_btn = QPushButton("Confirm Answer")
         submit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         submit_btn.clicked.connect(self.submit_answer)
-        submit_btn.setStyleSheet("background-color: #a6e3a1; color: #1e1e2e; font-size: 16px; font-weight: bold; padding: 15px; border-radius: 8px;")
+        submit_btn.setStyleSheet("background-color: #a6e3a1; color: #1e1e2e; font-size: 16px; font-weight: 900; padding: 15px; border-radius: 8px;")
         self.content_layout.addWidget(submit_btn)
 
     def submit_answer(self):
@@ -224,97 +215,87 @@ class AssessmentWidget(QWidget):
         else:
             self.load_question_view()
 
-    # ==========================================
-    # VIEW 3: RESULTS (With Detailed Review)
-    # ==========================================
+    def finish_assessment(self):
+        results = self.assessment_engine.finish_assessment()
+        self.show_results(results)
+
     def show_results(self, results):
         self.clear_content()
-        self.lbl_title.setText("ASSESSMENT DEBRIEF")
+        self.lbl_title.setText("ASSESSMENT DEBRIEF & AI ANALYSIS")
         
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("border: none; background: transparent;")
         
-        content_container = QWidget()
-        layout = QVBoxLayout(content_container)
+        container = QWidget()
+        layout = QVBoxLayout(container)
         layout.setSpacing(20)
         
         score_frame = QFrame()
-        score_frame.setStyleSheet("background-color: #262639; border-radius: 16px; border: 1px solid #313244;")
-        score_layout = QVBoxLayout(score_frame)
-        
+        score_frame.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244; padding: 30px;")
+        s_layout = QVBoxLayout(score_frame)
         score_lbl = QLabel(f"{results['score']} / {results['total_questions']}")
         score_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        score_lbl.setStyleSheet("font-size: 48px; font-weight: 900; color: #fab387;")
-        score_layout.addWidget(score_lbl)
+        score_lbl.setStyleSheet("font-size: 50px; font-weight: 900; color: #fab387; border: none;")
+        s_layout.addWidget(score_lbl)
         
-        pass_fail = "PASSED" if results['passed'] else "FAILED"
+        pass_fail = "✅ PASSED - NEW TIER UNLOCKED" if results['passed'] else "❌ FAILED - REVIEW CONCEPTS"
         col = "#a6e3a1" if results['passed'] else "#f38ba8"
-        status_lbl = QLabel(pass_fail)
-        status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        status_lbl.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {col}; letter-spacing: 4px;")
-        score_layout.addWidget(status_lbl)
-        
+        status = QLabel(pass_fail)
+        status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {col}; border: none;")
+        s_layout.addWidget(status)
         layout.addWidget(score_frame)
-        
-        # Breakdown
-        layout.addWidget(QLabel("QUESTION BREAKDOWN:"))
         
         for ans in results['answers']:
             row = QFrame()
-            border_col = "#a6e3a1" if ans['is_correct'] else "#f38ba8"
-            row.setStyleSheet(f"QFrame {{ background-color: #1e1e2e; border-left: 4px solid {border_col}; border-radius: 4px; padding: 10px; }}")
+            b_col = "#a6e3a1" if ans['is_correct'] else "#f38ba8"
+            row.setStyleSheet(f"QFrame {{ background: #1e1e2e; border-left: 5px solid {b_col}; border-radius: 6px; padding: 15px; }}")
             r_layout = QVBoxLayout(row)
             
-            q_lbl = QLabel(ans.get('question_text', 'Question'))
+            q_lbl = QLabel(ans.get('question_text', ''))
             q_lbl.setWordWrap(True)
-            q_lbl.setStyleSheet("font-weight: bold; color: white; font-size: 14px;")
+            q_lbl.setStyleSheet("font-weight: bold; color: white; font-size: 15px; border: none;")
             r_layout.addWidget(q_lbl)
             
-            if ans['is_correct']:
-                res_lbl = QLabel(f"✅ Correct: {ans['selected_answer']}")
-                res_lbl.setStyleSheet("color: #a6e3a1;")
-                r_layout.addWidget(res_lbl)
-            else:
+            if not ans['is_correct']:
                 user_lbl = QLabel(f"❌ You said: {ans['selected_answer']}")
-                user_lbl.setStyleSheet("color: #f38ba8;")
+                user_lbl.setStyleSheet("color: #f38ba8; border: none; font-size: 14px; margin-top: 5px;")
                 corr_lbl = QLabel(f"✅ Correct: {ans['correct_answer']}")
-                corr_lbl.setStyleSheet("color: #a6e3a1;")
-                
-                exp_lbl = QLabel(f"💡 {ans.get('explanation', '')}")
-                exp_lbl.setWordWrap(True)
-                exp_lbl.setStyleSheet("color: #a6adc8; font-style: italic; margin-top: 5px;")
-                
+                corr_lbl.setStyleSheet("color: #a6e3a1; border: none; font-size: 14px;")
                 r_layout.addWidget(user_lbl)
                 r_layout.addWidget(corr_lbl)
-                r_layout.addWidget(exp_lbl)
+                
+                # Dynamic AI Coaching Element
+                ai_lbl = QLabel("🤖 AI Coach is typing feedback...")
+                ai_lbl.setWordWrap(True)
+                ai_lbl.setStyleSheet("color: #89b4fa; font-style: italic; margin-top: 10px; border: none; padding: 10px; background: #181825; border-radius: 6px;")
+                r_layout.addWidget(ai_lbl)
+                
+                # Spawn worker
+                worker = AICoachWorker(ans['question_text'], ans['selected_answer'], ans['correct_answer'])
+                # Attach specific label to lambda to avoid overwriting and fallback to static explanation if Ollama fails
+                worker.finished.connect(lambda text, lbl=ai_lbl, fallback=ans.get('explanation',''): 
+                                      lbl.setText(f"🤖 <b>AI Coach:</b> {text}" if text else f"💡 {fallback}"))
+                self.workers.append(worker)
+                worker.start()
+            else:
+                res_lbl = QLabel(f"✅ Correct: {ans['selected_answer']}")
+                res_lbl.setStyleSheet("color: #a6e3a1; border: none;")
+                r_layout.addWidget(res_lbl)
                 
             layout.addWidget(row)
 
         btn_layout = QHBoxLayout()
-        retry_btn = QPushButton("Retry / Back")
+        retry_btn = QPushButton("Return to Menu")
         retry_btn.clicked.connect(self.show_tier_selection)
-        retry_btn.setStyleSheet("background-color: #313244; color: white; padding: 15px; border-radius: 8px;")
+        retry_btn.setStyleSheet("background-color: #313244; color: white; padding: 15px; border-radius: 8px; font-weight: bold;")
         
         btn_layout.addWidget(retry_btn)
         layout.addLayout(btn_layout)
         layout.addStretch()
         
-        scroll.setWidget(content_container)
+        scroll.setWidget(container)
         self.content_layout.addWidget(scroll)
         
         self.assessment_completed.emit(results)
-
-    # --- THE MISSING METHOD ---
-    def clear_content(self):
-        while self.content_layout.count():
-            child = self.content_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-    
-    def refresh_tiers(self):
-        self.show_tier_selection()
-    
-    def finish_assessment(self):
-        results = self.assessment_engine.finish_assessment()
-        self.show_results(results)

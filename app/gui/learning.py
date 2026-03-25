@@ -19,14 +19,15 @@ from PyQt6.QtCore import Qt
 
 KNOWLEDGE_DB = {
     "Mechanical Tension (Primary Driver)": {
-        "The Force-Velocity Relationship": (
+        "Mechanical Tension = Force Production": (
             "Mechanical tension is force produced by cross-bridge cycling under load. "
-            "The key insight: tension is highest during slow, loaded contractions — "
-            "NOT because you deliberately slow the rep, but because fatigue or heavy "
-            "load involuntarily reduces velocity. This is why the last reps before "
-            "failure carry the majority of hypertrophic stimulus (Schoenfeld 2010). "
-            "A 'grinder' rep at RIR 0 produces dramatically more tension than an "
-            "easy rep at RIR 5, even with the same weight."
+            "The INTENT to move the weight explosively is what maximally recruits motor "
+            "units — not deliberately slowing the rep down. When the load is heavy or "
+            "you're fatigued, the bar moves slowly involuntarily despite maximal effort. "
+            "That involuntary slowdown under maximal intent is what produces the highest "
+            "tension. A 'grinder' rep at RIR 0 where you're pushing as hard as possible "
+            "produces dramatically more tension than an easy rep at RIR 5. Always try to "
+            "accelerate the concentric — the load or fatigue will take care of the speed."
         ),
         "High-Threshold Motor Unit Recruitment": (
             "Per Henneman's Size Principle (1965), motor units are recruited from "
@@ -91,23 +92,42 @@ KNOWLEDGE_DB = {
         ),
     },
     "Biomechanics & Exercise Selection": {
-        "Resistance Profiles vs Strength Curves (Beardsley)": (
-            "Every exercise has a 'resistance profile' — where in the range of motion "
-            "the external load is hardest. Every muscle has a 'strength curve' — where "
-            "it can produce the most force. Matching these is NOT always the goal. "
-            "Beardsley (2020) argues that overloading the LENGTHENED position (where "
-            "the muscle is stretched under load) produces superior hypertrophy. This is "
-            "why incline curls > concentration curls, and why Romanian deadlifts are "
-            "so effective for hamstrings — they load the muscle at its longest length."
+        "Resistance Profiles — Matching the Strength Curve": (
+            "Every exercise has a 'resistance profile' — where in the ROM the external "
+            "load is hardest. Every muscle has a 'strength curve' — where it produces "
+            "the most force. The goal is to choose exercises where the resistance is "
+            "highest WHERE THE MUSCLE IS STRONGEST, so you can produce maximal force "
+            "through the full ROM. Cables provide constant tension throughout. Machines "
+            "can be engineered to match specific curves. Free weights have fixed "
+            "ascending/descending profiles dictated by gravity and lever arms. Exercise "
+            "selection should prioritize the ability to produce HIGH FORCE safely — "
+            "not chase any particular muscle length."
         ),
-        "Stretch-Mediated Hypertrophy": (
-            "Multiple studies (Maeo et al. 2021, Pedrosa et al. 2023) show that training "
-            "at long muscle lengths produces 1.5-2x more growth than training at short "
-            "lengths. Mechanisms include enhanced mechanotransduction and titin-mediated "
-            "signaling at long sarcomere lengths. Practical implication: prioritize exercises "
-            "that load the stretch position — seated leg curl (hips flexed) over lying curl, "
-            "overhead triceps extension over pushdowns, incline curl over preacher curl on "
-            "the short head."
+        "The Stretch-Mediated Hype — What the Research Actually Shows": (
+            "Studies like Pedrosa (2023) and Maeo (2021) comparing long-length partials "
+            "to short-length partials found more growth in the long-length group. But "
+            "this is often misinterpreted. These studies compared PARTIALS — not full "
+            "ROM. Full ROM training already captures whatever benefit exists at long "
+            "lengths. The practical takeaway is: use full ROM, not that you should seek "
+            "extreme stretch positions. Training at extreme stretch adds disproportionate "
+            "muscle DAMAGE (which Damas 2015 showed is NOT a growth driver), increases "
+            "injury risk, and impairs recovery — meaning you can train LESS frequently. "
+            "The effect also appears muscle-specific — it does not generalize to all "
+            "muscles equally. Exercises like the seated leg curl and overhead triceps "
+            "extension are good because they avoid active insufficiency and allow higher "
+            "FORCE PRODUCTION, not because of 'stretch magic.' Do not design your "
+            "training around stretching muscles under load."
+        ),
+        "Concentric Intent — Explosive Drives Motor Unit Recruitment": (
+            "The intent to move the weight as fast as possible during the concentric "
+            "phase is what maximally recruits high-threshold motor units (Behm & Sale "
+            "1993). Deliberately slowing the concentric reduces force production, which "
+            "LOWERS motor unit recruitment — the opposite of what you want. When the "
+            "load is heavy enough, the bar will move slowly regardless of intent. That "
+            "combination of maximal effort + slow movement is where tension peaks. "
+            "Slow eccentrics (3-4 seconds) have a place for control and feel, but "
+            "excessively slow tempos on the concentric are counterproductive. Push hard, "
+            "control the eccentric, repeat."
         ),
         "Stability and Motor Unit Recruitment": (
             "When external stability is high (machines, chest-supported), the CNS can "
@@ -118,14 +138,16 @@ KNOWLEDGE_DB = {
             "systemic fatigue. Free weights are not inherently 'better' — they just cost more "
             "recovery per unit of muscle stimulus."
         ),
-        "Active Insufficiency & Exercise Selection": (
+        "Active Insufficiency — The Real Reason Exercise Variants Matter": (
             "A biarticular muscle cannot produce maximal force when shortened across both "
-            "joints simultaneously. Example: the hamstrings are both a knee flexor and hip "
-            "extensor. A lying leg curl with hips extended puts the hamstrings in active "
-            "insufficiency — shortened at the hip, trying to shorten at the knee. A SEATED "
-            "leg curl (hips flexed) avoids this. The rectus femoris (quad) shows the opposite "
-            "pattern — leg extensions with the hip slightly flexed (seated upright or reclined) "
-            "load it better than with hips extended."
+            "joints simultaneously. This is why exercise variants exist — not for 'stretch' "
+            "but for FORCE PRODUCTION. Example: the hamstrings are both a knee flexor and "
+            "hip extensor. A lying leg curl with hips extended puts the hamstrings in active "
+            "insufficiency — shortened at the hip, trying to shorten at the knee. The muscle "
+            "literally cannot contract as hard. A SEATED leg curl (hips flexed) avoids this, "
+            "allowing the hamstrings to produce MORE FORCE per rep. Same logic: overhead "
+            "triceps extension lets the long head produce more force than pushdowns. This is "
+            "about biomechanical advantage, not about stretching anything."
         ),
     },
     "Recovery & Nutrition": {

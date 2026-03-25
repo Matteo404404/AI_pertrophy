@@ -143,13 +143,13 @@
       },
       {
         "id": "T2_Q3",
-        "question": "Why is training a muscle in its LENGTHENED (stretched) position likely superior for hypertrophy?",
-        "explanation": "Stretch-mediated hypertrophy: Maeo et al. (2021) and Pedrosa et al. (2023) showed ~2x more growth from exercises loading the stretched position. Mechanisms involve enhanced mechanotransduction and titin-mediated signaling at long sarcomere lengths.",
+        "question": "Why should you try to accelerate the weight during the concentric (lifting) phase of each rep?",
+        "explanation": "Maximal concentric intent recruits the most motor units (Behm & Sale 1993). The nervous system responds to the INTENT to produce force, not the actual bar speed. Heavy loads or fatigue will slow the bar involuntarily — that combination of maximal effort + involuntary slow movement is where peak mechanical tension occurs. Deliberately slowing the concentric REDUCES motor unit recruitment and thus reduces the hypertrophic stimulus.",
         "options": [
-          {"text": "It is not superior — shortened-position training is equivalent", "correct": false},
-          {"text": "It enhances mechanotransduction and growth signaling at long muscle lengths", "correct": true},
-          {"text": "It creates more muscle damage, which drives growth", "correct": false},
-          {"text": "It burns more calories than shortened-position exercises", "correct": false}
+          {"text": "Faster reps burn more calories", "correct": false},
+          {"text": "Maximal concentric intent recruits the most motor units, maximizing mechanical tension", "correct": true},
+          {"text": "Slow concentrics are actually better for muscle growth", "correct": false},
+          {"text": "Speed does not matter — only the weight matters", "correct": false}
         ]
       },
       {
@@ -305,7 +305,7 @@
       {
         "id": "T3_Q7",
         "question": "What is 'Regional Hypertrophy' and why does it matter?",
-        "explanation": "Different exercises can bias growth in specific regions of the same muscle. Rectus femoris responds differently to leg extension (shortened emphasis) vs sissy squat (lengthened emphasis). The long head of the triceps grows more from overhead extensions than pushdowns. Program design should include exercises covering different force-length regions.",
+        "explanation": "Different exercises can bias growth in specific regions of the same muscle due to differences in fiber architecture, moment arms, and active insufficiency. The triceps long head produces more force in overhead extensions than pushdowns because the shoulder-flexed position avoids active insufficiency. This is about FORCE PRODUCTION at different joint angles, not about stretching. Program design should include exercises that allow each region of a muscle to produce maximal force.",
         "options": [
           {"text": "It is a myth — muscles grow uniformly regardless of exercise", "correct": false},
           {"text": "Non-uniform growth within a muscle depending on which region receives the most mechanical tension", "correct": true},

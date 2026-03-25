@@ -1,20 +1,19 @@
 """
-Scientific Hypertrophy Trainer - Tracking Interface v5.3 (FINAL FIX)
-- Fixed: Restored 'load_protocol_to_grid' method 
-- Fixed: Matplotlib empty legend warning
-- Features: Multi-Exercise Grid, Protocol Studio, AI Graphing
+Scientific Hypertrophy Trainer - Tracking Interface
+- Complete UI Overhaul (Horizontal Date Strip with Activity Dots)
+- Full Workout AI Session Analyzer
+- Auto-maps all USDA Micronutrients
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
-    QTabWidget, QCalendarWidget, QDoubleSpinBox, QSpinBox, QTextEdit,
-    QComboBox, QGroupBox, QScrollArea, QMessageBox, QTableWidget, 
-    QTableWidgetItem, QHeaderView, QDialog, QCheckBox, QGridLayout,
-    QListWidget, QListWidgetItem, QInputDialog
+    QTabWidget, QDoubleSpinBox, QSpinBox, QTextEdit,
+    QComboBox, QScrollArea, QMessageBox, QTableWidget, 
+    QTableWidgetItem, QHeaderView, QDialog, QGridLayout, QSlider,
+    QInputDialog
 )
-from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtCore import Qt, QDate, pyqtSignal
 from datetime import date
-import numpy as np
 import json
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -31,6 +30,11 @@ try:
 except ImportError:
     ML_AVAILABLE = False
 
+try:
+    from gui.food_search_dialog import FoodSearchDialog
+except ImportError:
+    from app.gui.food_search_dialog import FoodSearchDialog
+
 MICROS_CONFIG = {
     "Vitamins (Fat Soluble)":[("Vitamin A", "IU"), ("Vitamin D3", "IU"), ("Vitamin E", "mg"), ("Vitamin K", "mcg")],
     "Vitamins (Water Soluble)":[("Vitamin C", "mg"), ("B-Complex", "mg"), ("Folate", "mcg")],
@@ -38,17 +42,114 @@ MICROS_CONFIG = {
     "Other":[("Water", "L"), ("Fiber", "g"), ("Omega-3", "g")]
 }
 
+# --- CUSTOM HORIZONTAL DATE STRIP ---
+class HorizontalWeekCalendar(QFrame):
+    date_selected = pyqtSignal(QDate)
+
+    def __init__(self):
+        super().__init__()
+        self.current_anchor = QDate.currentDate()
+        self.selected_date = QDate.currentDate()
+        self.activity_flags = {} 
+        self.days_buttons =[]
+        self.setStyleSheet("background: #181825; border-radius: 8px; border: 1px solid #313244;")
+        self.setFixedHeight(105)
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(10)
+
+        btn_prev = QPushButton("◀")
+        btn_prev.setFixedSize(40, 50)
+        btn_prev.clicked.connect(lambda: self.shift_week(-7))
+        btn_prev.setStyleSheet("background: #262639; color: white; border: none; border-radius: 6px; font-weight: bold;")
+        layout.addWidget(btn_prev)
+
+        self.days_layout = QHBoxLayout()
+        for i in range(7):
+            btn = QPushButton()
+            btn.setFixedSize(85, 80)
+            btn.clicked.connect(lambda checked, idx=i: self.select_day_index(idx))
+            self.days_layout.addWidget(btn)
+            self.days_buttons.append(btn)
+        layout.addLayout(self.days_layout)
+
+        btn_next = QPushButton("▶")
+        btn_next.setFixedSize(40, 50)
+        btn_next.clicked.connect(lambda: self.shift_week(7))
+        btn_next.setStyleSheet("background: #262639; color: white; border: none; border-radius: 6px; font-weight: bold;")
+        layout.addWidget(btn_next)
+
+        btn_today = QPushButton("Today")
+        btn_today.setFixedHeight(50)
+        btn_today.clicked.connect(self.jump_to_today)
+        btn_today.setStyleSheet("background: #89b4fa; color: #1e1e2e; font-weight: bold; border: none; border-radius: 6px; padding: 0 15px;")
+        layout.addWidget(btn_today)
+
+        self._update_buttons()
+
+    def shift_week(self, days):
+        self.current_anchor = self.current_anchor.addDays(days)
+        self._update_buttons()
+
+    def jump_to_today(self):
+        self.current_anchor = QDate.currentDate()
+        self.selected_date = QDate.currentDate()
+        self._update_buttons()
+        self.date_selected.emit(self.selected_date)
+
+    def select_day_index(self, idx):
+        start_date = self.current_anchor.addDays(-3)
+        self.selected_date = start_date.addDays(idx)
+        self._update_buttons()
+        self.date_selected.emit(self.selected_date)
+
+    def set_activity_flags(self, flags_dict):
+        self.activity_flags = flags_dict
+        self._update_buttons()
+
+    def _update_buttons(self):
+        start_date = self.current_anchor.addDays(-3)
+        for i in range(7):
+            date_obj = start_date.addDays(i)
+            date_str = date_obj.toString("yyyy-MM-dd")
+            btn = self.days_buttons[i]
+            
+            # Add Activity Icons
+            flags = self.activity_flags.get(date_str, [])
+            icons =[]
+            if "workout" in flags: icons.append("💪")
+            if "diet" in flags: icons.append("🥑")
+            if "sleep" in flags: icons.append("💤")
+            
+            icon_str = "".join(icons)
+            day_str = f"{date_obj.toString('ddd')}\n{date_obj.toString('d')}"
+            if icon_str:
+                day_str += f"\n{icon_str}"
+            else:
+                day_str += "\n"
+                
+            btn.setText(day_str)
+            
+            if date_obj == self.selected_date:
+                btn.setStyleSheet("background: #a6e3a1; color: #1e1e2e; font-weight: 900; font-size: 14px; border-radius: 8px; border: none;")
+            elif date_obj == QDate.currentDate():
+                btn.setStyleSheet("background: #313244; color: #89b4fa; font-weight: bold; font-size: 13px; border-radius: 8px; border: 1px solid #89b4fa;")
+            else:
+                btn.setStyleSheet("background: transparent; color: #a6adc8; font-weight: bold; font-size: 13px; border-radius: 8px; border: none;")
+
+
 class TrackingWidget(QWidget):
     def __init__(self, db_manager, tracking_system, user_manager):
         super().__init__()
         self.db = db_manager
         self.tracking_system = tracking_system
         self.user_manager = user_manager
-        self.selected_date = date.today()
-        self.micro_inputs = {}
         
-        self.current_session_data =[] 
-        self.current_exercise_info = None 
+        self.selected_date = QDate.currentDate()
+        self.micro_inputs = {}
         
         if ML_AVAILABLE:
             self.ai_predictor = HybridPredictor(self.db, "ml_engine/models/strength_predictor.pt")
@@ -60,118 +161,73 @@ class TrackingWidget(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
         
-        # --- TOP HEADER & PROTOCOL LOADER ---
         header_row = QHBoxLayout()
         title = QLabel("Session Console")
-        title.setStyleSheet("font-size: 24px; font-weight: 800; color: #89b4fa;")
+        title.setStyleSheet("font-size: 24px; font-weight: 900; color: #89b4fa;")
         header_row.addWidget(title)
         
+        self.date_info_label = QLabel(f"Active Date: {self.selected_date.toString('yyyy-MM-dd')}")
+        self.date_info_label.setStyleSheet("font-weight: bold; color: #fab387; font-size: 16px; margin-left: 15px;")
+        header_row.addWidget(self.date_info_label)
         header_row.addStretch()
         
-        header_row.addWidget(QLabel("Load Protocol:"))
-        self.combo_templates = QComboBox()
-        self.combo_templates.setStyleSheet("background: #181825; color: white; padding: 5px; border-radius: 4px;")
-        header_row.addWidget(self.combo_templates)
-        
-        # FIX: The button is now correctly wired to the method
-        btn_load = QPushButton("Load Folder")
-        btn_load.clicked.connect(self.load_protocol_to_grid) 
-        btn_load.setStyleSheet("background-color: #fab387; color: #1e1e2e; font-weight: bold; padding: 8px 15px; border-radius: 4px;")
-        header_row.addWidget(btn_load)
-        
-        main_layout.addLayout(header_row)
-
-        content_layout = QHBoxLayout()
-        self.create_calendar_section(content_layout)
+        self.calendar_strip = HorizontalWeekCalendar()
+        self.calendar_strip.date_selected.connect(self.on_date_selected)
+        main_layout.addWidget(self.calendar_strip)
         
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
-            QTabWidget::pane { border: 1px solid #313244; border-radius: 8px; background: #1e1e2e; }
-            QTabBar::tab { background: #181825; padding: 12px 24px; border-radius: 4px; color: #a6adc8; font-weight: bold;}
+            QTabWidget::pane { border: none; background: transparent; }
+            QTabBar::tab { background: #181825; padding: 12px 24px; border-radius: 6px; color: #a6adc8; font-weight: bold; margin-right: 5px; border: 1px solid #313244;}
             QTabBar::tab:selected { background: #313244; color: #a6e3a1; border-bottom: 3px solid #a6e3a1;}
         """)
         
         self.tabs.addTab(self.create_workout_tab(), "🏋️ Protocol Execution")
-        self.tabs.addTab(self.create_diet_tab(), "🧪 Nutrition")
-        self.tabs.addTab(self.create_sleep_tab(), "😴 Recovery")
+        self.tabs.addTab(self.create_diet_tab(), "🧪 Nutrition HUD")
+        self.tabs.addTab(self.create_sleep_tab(), "😴 Recovery Log")
         
-        content_layout.addWidget(self.tabs, 1)
-        main_layout.addLayout(content_layout)
-        
+        main_layout.addWidget(self.tabs)
         self.refresh_templates()
         self.refresh_data()
 
-    def create_calendar_section(self, parent_layout):
-        frame = QFrame()
-        frame.setFixedWidth(300)
-        frame.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244;")
-        layout = QVBoxLayout(frame)
-        self.calendar = QCalendarWidget()
-        self.calendar.setStyleSheet("background: white; color: black; border-radius: 4px;")
-        self.calendar.setSelectedDate(QDate.currentDate())
-        self.calendar.clicked.connect(self.on_date_selected)
-        layout.addWidget(self.calendar)
-        
-        self.date_info_label = QLabel(f"Active Date: {self.selected_date}")
-        self.date_info_label.setStyleSheet("font-weight: bold; margin-top: 10px; color: #fab387; font-size: 14px;")
-        self.date_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.date_info_label)
-        layout.addStretch()
-        parent_layout.addWidget(frame)
-
     # ==========================================
-    # 🏋️ WORKOUT TAB (PROTOCOL STUDIO)
+    # 🏋️ WORKOUT TAB
     # ==========================================
     def create_workout_tab(self):
         tab = QWidget()
         layout = QHBoxLayout(tab)
-        layout.setSpacing(20)
+        layout.setContentsMargins(0, 15, 0, 0)
         
-        # --- LEFT PANEL: Protocol Manager ---
-        protocol_frame = QFrame()
-        protocol_frame.setFixedWidth(280)
-        protocol_frame.setStyleSheet("background: #262639; border-radius: 8px;")
-        p_layout = QVBoxLayout(protocol_frame)
+        p_frame = QFrame()
+        p_frame.setFixedWidth(280)
+        p_frame.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244;")
+        p_layout = QVBoxLayout(p_frame)
         
-        lbl_prot = QLabel("SAVED PROTOCOLS")
-        lbl_prot.setStyleSheet("font-size: 14px; font-weight: 900; color: #cba6f7; letter-spacing: 1px;")
-        p_layout.addWidget(lbl_prot)
+        p_layout.addWidget(QLabel("<b>LOAD PROTOCOL</b>"))
+        self.combo_templates = QComboBox()
+        self.combo_templates.setStyleSheet("background: #262639; color: white; padding: 10px; border-radius: 6px; border: none;")
+        p_layout.addWidget(self.combo_templates)
         
-        self.protocol_list = QListWidget()
-        self.protocol_list.setStyleSheet("""
-            QListWidget { background: #181825; border: 1px solid #313244; border-radius: 6px; outline: none; }
-            QListWidget::item { padding: 12px; color: #cdd6f4; border-bottom: 1px solid #313244;}
-            QListWidget::item:selected { background: #313244; color: #cba6f7; font-weight: bold; border-left: 3px solid #cba6f7;}
-        """)
-        self.protocol_list.currentItemChanged.connect(self.on_protocol_selected)
-        p_layout.addWidget(self.protocol_list)
+        btn_load = QPushButton("Inject Protocol")
+        btn_load.clicked.connect(self.load_protocol_to_grid)
+        btn_load.setStyleSheet("background-color: #fab387; color: #1e1e2e; font-weight: bold; padding: 12px; border-radius: 6px;")
+        p_layout.addWidget(btn_load)
+        p_layout.addStretch()
         
-        self.lbl_protocol_desc = QTextEdit()
-        self.lbl_protocol_desc.setReadOnly(True)
-        self.lbl_protocol_desc.setFixedHeight(100)
-        self.lbl_protocol_desc.setStyleSheet("background: #181825; color: #a6adc8; font-size: 12px; border: 1px solid #313244;")
-        p_layout.addWidget(self.lbl_protocol_desc)
-        
-        btn_load_list = QPushButton("Load Protocol From List")
-        btn_load_list.clicked.connect(self.load_protocol_to_grid)
-        btn_load_list.setStyleSheet("background-color: #cba6f7; color: #11111b; font-weight: bold; padding: 10px; border-radius: 6px;")
-        p_layout.addWidget(btn_load_list)
-        
-        btn_save_prot = QPushButton("Save Current as New Protocol")
+        btn_save_prot = QPushButton("Save Matrix as Template")
         btn_save_prot.clicked.connect(self.save_grid_as_protocol)
-        btn_save_prot.setStyleSheet("background-color: #313244; color: #cdd6f4; font-weight: bold; padding: 10px; border-radius: 6px;")
+        btn_save_prot.setStyleSheet("background-color: #313244; color: #cdd6f4; font-weight: bold; padding: 12px; border-radius: 6px;")
         p_layout.addWidget(btn_save_prot)
+        layout.addWidget(p_frame)
         
-        layout.addWidget(protocol_frame)
-        
-        # --- RIGHT PANEL: Execution Grid ---
         grid_frame = QFrame()
+        grid_frame.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244;")
         g_layout = QVBoxLayout(grid_frame)
-        g_layout.setContentsMargins(0, 0, 0, 0)
         
         lbl_matrix = QLabel("SESSION EXECUTION MATRIX")
-        lbl_matrix.setStyleSheet("font-size: 14px; font-weight: 900; color: #a6e3a1; letter-spacing: 1px;")
+        lbl_matrix.setStyleSheet("font-size: 14px; font-weight: 900; color: #a6e3a1; letter-spacing: 1px; border: none;")
         g_layout.addWidget(lbl_matrix)
         
         self.session_table = QTableWidget()
@@ -179,93 +235,247 @@ class TrackingWidget(QWidget):
         self.session_table.setHorizontalHeaderLabels(["Exercise", "Load (kg)", "Reps", "RIR"])
         self.session_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.session_table.setStyleSheet("""
-            QTableWidget { background: #181825; color: white; border: 1px solid #313244; border-radius: 8px; font-size: 14px;}
-            QTableWidget::item { padding: 5px; }
+            QTableWidget { background: transparent; color: white; border: none; font-size: 14px;}
+            QTableWidget::item { padding: 8px; border-bottom: 1px solid #313244;}
             QTableWidget::item:selected { background-color: #313244; }
-            QHeaderView::section { background-color: #313244; color: #a6e3a1; font-weight: bold; padding: 8px; border: none; }
+            QHeaderView::section { background-color: #262639; color: #89b4fa; font-weight: bold; padding: 10px; border: none; border-radius: 4px;}
         """)
         g_layout.addWidget(self.session_table)
         
         controls_layout = QHBoxLayout()
-        
-        btn_add_ex = QPushButton("+ Add Single Exercise")
+        btn_add_ex = QPushButton("+ Single Exercise")
         btn_add_ex.clicked.connect(self.open_exercise_library)
         btn_add_ex.setStyleSheet("background-color: #313244; color: white; padding: 12px; border-radius: 6px; font-weight: bold;")
         controls_layout.addWidget(btn_add_ex)
         
         controls_layout.addStretch()
         
-        self.btn_ai = QPushButton("🧠 AI Analyze Selected Row")
-        self.btn_ai.clicked.connect(self.on_predict_click)
-        self.btn_ai.setStyleSheet("background-color: #89b4fa; color: #11111b; padding: 12px; border-radius: 6px; font-weight: bold;")
-        controls_layout.addWidget(self.btn_ai)
+        self.btn_ai_single = QPushButton("🔍 Analyze Row")
+        self.btn_ai_single.clicked.connect(self.on_predict_click)
+        self.btn_ai_single.setStyleSheet("background-color: #313244; color: #89b4fa; padding: 12px; border-radius: 6px; font-weight: bold;")
+        controls_layout.addWidget(self.btn_ai_single)
         
-        btn_commit = QPushButton("✅ COMMIT SESSION LOG")
+        self.btn_ai_full = QPushButton("🧠 ANALYZE FULL WORKOUT")
+        self.btn_ai_full.clicked.connect(self.on_predict_full_session)
+        self.btn_ai_full.setStyleSheet("background-color: #89b4fa; color: #1e1e2e; padding: 12px; border-radius: 6px; font-weight: bold;")
+        controls_layout.addWidget(self.btn_ai_full)
+        
+        btn_commit = QPushButton("✅ COMMIT LOG")
         btn_commit.clicked.connect(self.commit_full_session)
         btn_commit.setStyleSheet("background-color: #a6e3a1; color: #11111b; padding: 12px; border-radius: 6px; font-weight: 900;")
         controls_layout.addWidget(btn_commit)
         
         g_layout.addLayout(controls_layout)
         layout.addWidget(grid_frame, 1)
-        
         return tab
 
-    # --- PROTOCOL LOGIC ---
+    # ==========================================
+    # 🧪 DIET TAB
+    # ==========================================
+    def create_diet_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 15, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none; background: transparent;")
+        form_widget = QWidget()
+        form_layout = QVBoxLayout(form_widget)
+        
+        btn_food_search = QPushButton("🔍 Search USDA Food Database")
+        btn_food_search.clicked.connect(self.open_food_search)
+        btn_food_search.setStyleSheet("background-color: #89b4fa; color: #1e1e2e; font-weight: 900; padding: 15px; border-radius: 8px; font-size: 14px;")
+        form_layout.addWidget(btn_food_search)
+
+        macro_card = QFrame()
+        macro_card.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244; padding: 15px;")
+        m_layout = QGridLayout(macro_card)
+        
+        m_lbl = QLabel("MACRONUTRIENTS")
+        m_lbl.setStyleSheet("font-size: 12px; font-weight: 900; color: #fab387; letter-spacing: 1px; border: none;")
+        m_layout.addWidget(m_lbl, 0, 0, 1, 4)
+
+        self.diet_protein = self._create_sleek_input("Protein", "g", m_layout, 1, 0)
+        self.diet_carbs = self._create_sleek_input("Carbs", "g", m_layout, 1, 2)
+        self.diet_fats = self._create_sleek_input("Fats", "g", m_layout, 2, 0)
+        
+        self.diet_calories = QSpinBox()
+        self.diet_calories.setRange(0, 10000)
+        self.diet_calories.setSuffix(" kcal")
+        self.diet_calories.setStyleSheet("background: #262639; color: #a6e3a1; font-weight: bold; font-size: 16px; padding: 10px; border-radius: 6px; border: none;")
+        
+        cal_lbl = QLabel("🔥 Calories:")
+        cal_lbl.setStyleSheet("color: white; font-weight: bold; border: none;")
+        m_layout.addWidget(cal_lbl, 2, 2)
+        m_layout.addWidget(self.diet_calories, 2, 3)
+        form_layout.addWidget(macro_card)
+
+        for category, items in MICROS_CONFIG.items():
+            card = QFrame()
+            card.setStyleSheet("background: #181825; border-radius: 12px; border: 1px solid #313244; padding: 15px;")
+            c_layout = QGridLayout(card)
+            
+            c_lbl = QLabel(category.upper())
+            c_lbl.setStyleSheet("font-size: 12px; font-weight: 900; color: #cba6f7; letter-spacing: 1px; border: none;")
+            c_layout.addWidget(c_lbl, 0, 0, 1, 4)
+
+            row, col = 1, 0
+            for name, unit in items:
+                inp = QDoubleSpinBox()
+                inp.setRange(0, 50000)
+                inp.setSuffix(f" {unit}")
+                inp.setStyleSheet("background: #262639; color: white; padding: 8px; border-radius: 4px; border: none;")
+                self.micro_inputs[name] = inp
+                
+                n_lbl = QLabel(name)
+                n_lbl.setStyleSheet("color: #a6adc8; font-weight: bold; border: none;")
+                
+                c_layout.addWidget(n_lbl, row, col)
+                c_layout.addWidget(inp, row, col + 1)
+                col += 2
+                if col >= 4: 
+                    col = 0
+                    row += 1
+            form_layout.addWidget(card)
+        
+        save_btn = QPushButton("💾 Save Nutrition Profile")
+        save_btn.clicked.connect(self.save_diet_entry)
+        save_btn.setStyleSheet("background-color: #a6e3a1; color: #1e1e2e; font-weight: 900; padding: 15px; border-radius: 8px; font-size: 14px;")
+        form_layout.addWidget(save_btn)
+        
+        scroll.setWidget(form_widget)
+        layout.addWidget(scroll)
+        return tab
+
+    def _create_sleek_input(self, label, suffix, layout, row, col):
+        lbl = QLabel(label)
+        lbl.setStyleSheet("color: white; font-weight: bold; border: none;")
+        inp = QDoubleSpinBox()
+        inp.setRange(0, 10000)
+        inp.setSuffix(f" {suffix}")
+        inp.valueChanged.connect(self.auto_calculate_calories)
+        inp.setStyleSheet("background: #262639; color: white; padding: 10px; border-radius: 6px; border: none; font-size: 14px;")
+        layout.addWidget(lbl, row, col)
+        layout.addWidget(inp, row, col + 1)
+        return inp
+
+    def auto_calculate_calories(self):
+        p = self.diet_protein.value() * 4
+        c = self.diet_carbs.value() * 4
+        f = self.diet_fats.value() * 9
+        self.diet_calories.setValue(int(p + c + f))
+
+    def open_food_search(self):
+        dialog = FoodSearchDialog(self)
+        dialog.food_selected.connect(self._apply_food_macros)
+        dialog.exec()
+
+    def _apply_food_macros(self, macros):
+        for key, val in macros.items():
+            if key == "calories": self.diet_calories.setValue(self.diet_calories.value() + int(val))
+            elif key == "protein_g": self.diet_protein.setValue(self.diet_protein.value() + val)
+            elif key == "carbs_g": self.diet_carbs.setValue(self.diet_carbs.value() + val)
+            elif key == "fats_g": self.diet_fats.setValue(self.diet_fats.value() + val)
+            elif key in self.micro_inputs: self.micro_inputs[key].setValue(self.micro_inputs[key].value() + val)
+
+    # ==========================================
+    # 😴 RECOVERY TAB
+    # ==========================================
+    def create_sleep_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(40, 40, 40, 40)
+
+        header = QLabel("OVERNIGHT RECOVERY")
+        header.setStyleSheet("font-size: 24px; font-weight: 900; color: #cba6f7;")
+        layout.addWidget(header)
+
+        card = QFrame()
+        card.setStyleSheet("background: #181825; border-radius: 16px; border: 1px solid #313244;")
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(40)
+        card_layout.setContentsMargins(30, 40, 30, 40)
+
+        dur_layout = QVBoxLayout()
+        dur_header = QHBoxLayout()
+        dur_lbl = QLabel("Sleep Duration")
+        dur_lbl.setStyleSheet("color: #a6adc8; font-weight: bold; font-size: 16px; border: none;")
+        self.dur_val = QLabel("7.5 hrs")
+        self.dur_val.setStyleSheet("color: white; font-weight: 900; font-size: 20px; border: none;")
+        dur_header.addWidget(dur_lbl); dur_header.addStretch(); dur_header.addWidget(self.dur_val)
+
+        self.slider_duration = QSlider(Qt.Orientation.Horizontal)
+        self.slider_duration.setRange(0, 140)
+        self.slider_duration.setValue(75)
+        self.slider_duration.setStyleSheet(self._slider_style("#89b4fa"))
+        self.slider_duration.valueChanged.connect(lambda v: self.dur_val.setText(f"{v/10:.1f} hrs"))
+
+        dur_layout.addLayout(dur_header); dur_layout.addWidget(self.slider_duration)
+        card_layout.addLayout(dur_layout)
+
+        qual_layout = QVBoxLayout()
+        qual_header = QHBoxLayout()
+        qual_lbl = QLabel("Sleep Quality (CNS Readiness)")
+        qual_lbl.setStyleSheet("color: #a6adc8; font-weight: bold; font-size: 16px; border: none;")
+        self.qual_val = QLabel("7 / 10")
+        self.qual_val.setStyleSheet("color: #a6e3a1; font-weight: 900; font-size: 20px; border: none;")
+        qual_header.addWidget(qual_lbl); qual_header.addStretch(); qual_header.addWidget(self.qual_val)
+
+        self.slider_quality = QSlider(Qt.Orientation.Horizontal)
+        self.slider_quality.setRange(1, 10)
+        self.slider_quality.setValue(7)
+        self.slider_quality.setStyleSheet(self._slider_style("#a6e3a1"))
+        self.slider_quality.valueChanged.connect(self._update_quality_color)
+
+        qual_layout.addLayout(qual_header); qual_layout.addWidget(self.slider_quality)
+        card_layout.addLayout(qual_layout)
+
+        layout.addWidget(card)
+
+        save_btn = QPushButton("💾 Log Recovery Metrics")
+        save_btn.clicked.connect(self.save_sleep_entry)
+        save_btn.setStyleSheet("background-color: #cba6f7; color: #1e1e2e; font-weight: 900; padding: 15px; border-radius: 8px; font-size: 16px; margin-top: 20px;")
+        layout.addWidget(save_btn)
+        layout.addStretch()
+        return tab
+
+    def _update_quality_color(self, v):
+        color = "#f38ba8" if v < 5 else "#f9e2af" if v < 8 else "#a6e3a1"
+        self.qual_val.setText(f"{v} / 10")
+        self.qual_val.setStyleSheet(f"color: {color}; font-weight: 900; font-size: 20px; border: none;")
+
+    def _slider_style(self, color):
+        return f"""
+            QSlider::groove:horizontal {{ height: 8px; background: #313244; border-radius: 4px; }}
+            QSlider::sub-page:horizontal {{ background: {color}; border-radius: 4px; }}
+            QSlider::handle:horizontal {{ background: white; width: 20px; margin: -6px 0; border-radius: 10px; }}
+        """
+
+    # ==========================================
+    # DATA LOGIC & AI PREDICTION
+    # ==========================================
     def refresh_templates(self):
         self.combo_templates.clear()
-        self.protocol_list.clear()
-        user = self.user_manager.get_current_user()
-        u_id = user['id'] if user else None
-        
         try:
-            query = "SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id = ?"
-            templates = self.db.conn.execute(query, (u_id,)).fetchall()
-            for t in templates:
-                self.combo_templates.addItem(t['name'], t['id'])
-                item = QListWidgetItem(t['name'])
-                item.setData(Qt.ItemDataRole.UserRole, t['id'])
-                item.setData(Qt.ItemDataRole.UserRole + 1, t['description'])
-                self.protocol_list.addItem(item)
-        except Exception as e:
-            print(f"Template DB Error: {e}")
-
-    def on_protocol_selected(self, item):
-        if not item: return
-        desc = item.data(Qt.ItemDataRole.UserRole + 1)
-        self.lbl_protocol_desc.setText(desc or "No scientific notes provided for this protocol.")
+            templates = self.db.conn.execute("SELECT * FROM workout_templates").fetchall()
+            for t in templates: self.combo_templates.addItem(t['name'], t['id'])
+        except: pass
 
     def load_protocol_to_grid(self):
-        """FIXED: Checks if a protocol is selected from EITHER the list or the combo box"""
-        tid = None
-        
-        # Prioritize the side list selection if clicked
-        if self.protocol_list.currentItem():
-            tid = self.protocol_list.currentItem().data(Qt.ItemDataRole.UserRole)
-        # Otherwise fallback to whatever is in the combo box at the top
-        elif self.combo_templates.currentData():
-            tid = self.combo_templates.currentData()
-            
-        if not tid: 
-            QMessageBox.warning(self, "Select", "Select a protocol first.")
-            return
-            
+        tid = self.combo_templates.currentData()
+        if not tid: return
         self.session_table.setRowCount(0)
         try:
             exercises = self.db.conn.execute("""
-                SELECT te.*, e.name 
-                FROM template_exercises te
+                SELECT te.*, e.name FROM template_exercises te
                 JOIN exercises e ON te.exercise_id = e.id
                 WHERE te.template_id = ? ORDER BY te.order_index ASC
             """, (tid,)).fetchall()
-            
             for ex in exercises:
-                # Add row for each set requested in template
                 for _ in range(ex['target_sets']):
                     self._add_grid_row(ex['exercise_id'], ex['name'], "0.0", "0", "0")
-            
-            QMessageBox.information(self, "Loaded", "Protocol loaded into matrix. Double-click cells to input your loads.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load: {e}")
+        except: pass
 
     def save_grid_as_protocol(self):
         user = self.user_manager.get_current_user()
@@ -274,41 +484,32 @@ class TrackingWidget(QWidget):
             QMessageBox.warning(self, "Empty", "Add exercises to the grid first.")
             return
             
-        name, ok = QInputDialog.getText(self, "Save Protocol", "Enter Scientific Protocol Name:")
+        name, ok = QInputDialog.getText(self, "Save Protocol", "Enter Protocol Name:")
         if not ok or not name: return
-        
-        desc, ok2 = QInputDialog.getText(self, "Protocol Goal", "Enter Scientific Intent (e.g. 'Metabolic stress'):")
+        desc, ok2 = QInputDialog.getText(self, "Protocol Goal", "Enter Intent (e.g. 'Metabolic stress'):")
         
         try:
             exercises_to_save =[]
             for row in range(self.session_table.rowCount()):
                 item = self.session_table.item(row, 0)
-                ex_id = item.data(Qt.ItemDataRole.UserRole)
-                exercises_to_save.append({'id': ex_id, 'sets': 1})
+                exercises_to_save.append({'id': item.data(Qt.ItemDataRole.UserRole), 'sets': 1})
             
             collapsed =[]
             for ex in exercises_to_save:
-                if collapsed and collapsed[-1]['id'] == ex['id']:
-                    collapsed[-1]['sets'] += 1
-                else:
-                    collapsed.append(ex)
+                if collapsed and collapsed[-1]['id'] == ex['id']: collapsed[-1]['sets'] += 1
+                else: collapsed.append(ex)
                     
             cursor = self.db.conn.cursor()
-            cursor.execute("INSERT INTO workout_templates (user_id, name, description) VALUES (?, ?, ?)", 
-                           (user['id'], name, desc))
+            cursor.execute("INSERT INTO workout_templates (user_id, name, description) VALUES (?, ?, ?)", (user['id'], name, desc))
             tid = cursor.lastrowid
             
             for i, ex in enumerate(collapsed):
-                cursor.execute("INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets) VALUES (?, ?, ?, ?)",
-                               (tid, ex['id'], i, ex['sets']))
+                cursor.execute("INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets) VALUES (?, ?, ?, ?)", (tid, ex['id'], i, ex['sets']))
             self.db.conn.commit()
-            
-            QMessageBox.information(self, "Success", "Protocol Saved to Library!")
             self.refresh_templates()
-        except Exception as e:
-            QMessageBox.critical(self, "DB Error", str(e))
+            QMessageBox.information(self, "Success", "Protocol Saved to Library!")
+        except Exception as e: QMessageBox.critical(self, "DB Error", str(e))
 
-    # --- GRID MANAGEMENT ---
     def open_exercise_library(self):
         dialog = ExerciseLibraryDialog(self.db, self)
         dialog.exercise_selected.connect(self.on_single_exercise_added)
@@ -320,78 +521,144 @@ class TrackingWidget(QWidget):
     def _add_grid_row(self, ex_id, name, weight, reps, rir):
         row = self.session_table.rowCount()
         self.session_table.insertRow(row)
-        
         name_item = QTableWidgetItem(name)
         name_item.setData(Qt.ItemDataRole.UserRole, ex_id)
         name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable) 
-        
         self.session_table.setItem(row, 0, name_item)
         self.session_table.setItem(row, 1, QTableWidgetItem(str(weight)))
         self.session_table.setItem(row, 2, QTableWidgetItem(str(reps)))
         self.session_table.setItem(row, 3, QTableWidgetItem(str(rir)))
 
     def commit_full_session(self):
-        if self.session_table.rowCount() == 0:
-            QMessageBox.warning(self, "Empty", "No data to commit.")
-            return
-            
+        if self.session_table.rowCount() == 0: return
         user = self.user_manager.get_current_user()
         if not user: return
-        
         try:
-            session_id = self.db.create_workout_session(user['id'], self.selected_date, "Scientific Grid Log")
-            
-            rows_saved = 0
+            session_id = self.db.create_workout_session(user['id'], self.selected_date.toString('yyyy-MM-dd'), "Scientific Grid Log")
             for row in range(self.session_table.rowCount()):
-                ex_id_data = self.session_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-                ex_id = int(ex_id_data) if ex_id_data else 1
+                ex_id = self.session_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
                 try:
                     w = float(self.session_table.item(row, 1).text())
                     r = int(self.session_table.item(row, 2).text())
                     rir = int(self.session_table.item(row, 3).text())
-                except ValueError:
-                    continue 
-                
-                if w > 0 or r > 0:
-                    self.db.add_exercise_performance(
-                        workout_session_id=session_id, 
-                        exercise_id=ex_id, 
-                        set_number=rows_saved+1, 
-                        weight_kg=w, 
-                        reps_completed=r, 
-                        rir_actual=rir
-                    )
-                    rows_saved += 1
-            
-            QMessageBox.information(self, "Success", f"Session Committed! {rows_saved} sets logged.")
+                    if w > 0 or r > 0:
+                        self.db.add_exercise_performance(
+                            workout_session_id=session_id, exercise_id=ex_id, 
+                            set_number=row+1, weight_kg=w, reps_completed=r, rir_actual=rir)
+                except ValueError: continue 
             self.refresh_data()
-        except Exception as e:
-            QMessageBox.critical(self, "DB Error", str(e))
+            QMessageBox.information(self, "Success", "Session Committed!")
+        except Exception as e: QMessageBox.critical(self, "DB Error", str(e))
 
-    # ==========================================
-    # 🧠 AI PREDICTION
-    # ==========================================
     def on_predict_click(self):
-        if not self.ai_predictor: 
-            QMessageBox.warning(self, "Error", "AI Engine missing.")
-            return
-            
+        if not self.ai_predictor: return
         row = self.session_table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Selection", "Please click on a row in the table to analyze that specific exercise.")
+        if row < 0: 
+            QMessageBox.warning(self, "Selection", "Please click on a row to analyze that specific exercise.")
             return
-            
         ex_name = self.session_table.item(row, 0).text()
         user = self.user_manager.get_current_user()
-        
-        self.btn_ai.setText("⏳ Processing...")
         try:
             result = self.ai_predictor.predict(user['id'], ex_name)
             self.show_prediction_results(ex_name, result)
-        except Exception as e:
-            QMessageBox.warning(self, "AI Error", str(e))
-        finally:
-            self.btn_ai.setText("🧠 AI Analyze Selected Row")
+        except Exception as e: QMessageBox.warning(self, "AI Error", str(e))
+
+    def on_predict_full_session(self):
+        """Analyzes the ENTIRE workout grid context"""
+        if not self.ai_predictor: return
+        if self.session_table.rowCount() == 0:
+            QMessageBox.warning(self, "Empty", "Load a protocol or add exercises first.")
+            return
+
+        user = self.user_manager.get_current_user()
+        
+        exercises =[]
+        total_volume = 0
+        total_sets = 0
+        
+        for row in range(self.session_table.rowCount()):
+            ex = self.session_table.item(row, 0).text()
+            if ex not in exercises: exercises.append(ex)
+            try:
+                load = float(self.session_table.item(row, 1).text())
+                reps = int(self.session_table.item(row, 2).text())
+                total_volume += (load * reps)
+                total_sets += 1
+            except ValueError:
+                total_sets += 1
+            
+        self.btn_ai_full.setText("⏳ Analyzing Workout...")
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+        
+        results =[]
+        for ex in exercises:
+            try:
+                res = self.ai_predictor.predict(user['id'], ex)
+                results.append((ex, res))
+            except: pass
+            
+        self.btn_ai_full.setText("🧠 ANALYZE FULL WORKOUT")
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Full Session Macro-Analytics")
+        dialog.setMinimumSize(700, 600)
+        dialog.setStyleSheet("background-color: #1e1e2e; color: white;")
+        layout = QVBoxLayout()
+        
+        header = QLabel("<b>Holistic Workout Analysis</b>")
+        header.setStyleSheet("font-size: 20px; color: #89b4fa;")
+        layout.addWidget(header)
+        
+        stats_layout = QHBoxLayout()
+        s1 = QLabel(f"Total Movements: {len(exercises)}")
+        s2 = QLabel(f"Total Sets: {total_sets}")
+        s3 = QLabel(f"Est. Volume: {total_volume:.1f} kg")
+        for s in [s1, s2, s3]:
+            s.setStyleSheet("background: #262639; padding: 10px; border-radius: 6px; font-weight: bold;")
+            stats_layout.addWidget(s)
+        layout.addLayout(stats_layout)
+        
+        if total_sets > 22:
+            warn = QLabel("⚠️ WARNING: Total sets exceed 22. This likely exceeds session MRV (Maximum Recoverable Volume) and shifts SFR to junk volume.")
+            warn.setStyleSheet("color: #f38ba8; font-weight: bold; padding: 10px; background: rgba(243, 139, 168, 0.1); border-radius: 6px;")
+            layout.addWidget(warn)
+            
+        likely_gains = sum(1 for _, r in results if 'LIKELY' in r['prediction'].upper())
+        summary = QLabel(f"Growth Potential: {likely_gains}/{len(exercises)} movements show High Adaptation Probability.")
+        summary.setStyleSheet("color: #a6e3a1; font-weight: bold; font-size: 16px; margin: 10px 0;")
+        layout.addWidget(summary)
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none;")
+        w = QWidget()
+        v_lay = QVBoxLayout(w)
+        
+        for ex, res in results:
+            card = QFrame()
+            col = '#a6e3a1' if 'LIKELY' in res['prediction'].upper() else '#f38ba8'
+            card.setStyleSheet(f"background: #181825; border-left: 4px solid {col}; border-radius: 6px; padding: 10px;")
+            c_lay = QVBoxLayout(card)
+            
+            c_lay.addWidget(QLabel(f"<span style='font-size:16px; font-weight:bold; color:{col};'>{ex}</span>"))
+            c_lay.addWidget(QLabel(f"<b>Forecast:</b> {res['prediction'].upper()} | <b>RIR Target:</b> {res.get('recommendations',{}).get('rir','N/A')}"))
+            
+            reason = QLabel(f"<i>{res.get('reason', '')}</i>")
+            reason.setStyleSheet("color: #a6adc8;")
+            reason.setWordWrap(True)
+            c_lay.addWidget(reason)
+            v_lay.addWidget(card)
+            
+        scroll.setWidget(w)
+        layout.addWidget(scroll)
+        
+        btn = QPushButton("Close")
+        btn.clicked.connect(dialog.accept)
+        btn.setStyleSheet("background-color: #313244; padding: 10px; border-radius: 4px; font-weight: bold;")
+        layout.addWidget(btn)
+        dialog.setLayout(layout)
+        dialog.exec()
 
     def show_prediction_results(self, exercise, result):
         dialog = QDialog(self)
@@ -417,7 +684,6 @@ class TrackingWidget(QWidget):
         user = self.user_manager.get_current_user()
         history_df = self.db.get_user_workout_history_df(user['id'], exercise)
         
-        # Check if we have valid data to plot
         if not history_df.empty and len(history_df) > 1:
             dates = range(len(history_df))
             weights = history_df['weight_kg'].values
@@ -427,15 +693,10 @@ class TrackingWidget(QWidget):
             pred_y = result.get('predicted_weight') or weights[-1]
             ax.plot([last_x, last_x+1], [weights[-1], pred_y], color='#a6adc8', linestyle='--', alpha=0.5)
             
-            uncert = result.get('uncertainty_range')
-            if uncert is None: uncert = 0
-            
+            uncert = result.get('uncertainty_range', 0)
             ax.errorbar([last_x+1],[pred_y], yerr=uncert, fmt='*', color='#f38ba8', markersize=15, label='Forecast')
-            
-            # FIX: Legend is only drawn if there are actual labeled plots
             ax.legend(facecolor='#313244', edgecolor='none', labelcolor='white')
         else:
-            # FIX: Fallback visualization for empty data
             ax.text(0.5, 0.5, "Need >2 sessions for trend line", ha='center', color='white', transform=ax.transAxes)
             
         ax.grid(True, alpha=0.1)
@@ -448,105 +709,51 @@ class TrackingWidget(QWidget):
         btn.clicked.connect(dialog.accept)
         btn.setStyleSheet("background-color: #313244; padding: 10px; border-radius: 4px;")
         layout.addWidget(btn)
-        
         dialog.setLayout(layout)
         dialog.exec()
 
-    # ==========================================
-    # DIET / SLEEP / REFRESH
-    # ==========================================
-    def create_diet_tab(self):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        form_widget = QWidget()
-        form_layout = QVBoxLayout(form_widget)
-        
-        macros_group = QGroupBox("Macronutrients")
-        macros_group.setStyleSheet("QGroupBox { color: white; font-weight: bold; border: 1px solid #313244; }")
-        grid = QGridLayout(macros_group)
-        self.diet_protein = self._create_macro_input("Protein", "g", grid, 0, 0)
-        self.diet_carbs = self._create_macro_input("Carbs", "g", grid, 0, 2)
-        self.diet_fats = self._create_macro_input("Fats", "g", grid, 1, 0)
-        self.diet_calories = QSpinBox()
-        self.diet_calories.setRange(0, 10000)
-        self.diet_calories.setSuffix(" kcal")
-        grid.addWidget(QLabel("🔥 Calories:"), 1, 2)
-        grid.addWidget(self.diet_calories, 1, 3)
-        form_layout.addWidget(macros_group)
-
-        for category, items in MICROS_CONFIG.items():
-            group = QGroupBox(category)
-            group.setStyleSheet("QGroupBox { color: white; font-weight: bold; border: 1px solid #313244; }")
-            g_layout = QGridLayout(group)
-            row, col = 0, 0
-            for name, unit in items:
-                g_layout.addWidget(QLabel(name + ":"), row, col)
-                inp = QDoubleSpinBox()
-                inp.setRange(0, 50000)
-                self.micro_inputs[name] = inp
-                g_layout.addWidget(inp, row, col + 1)
-                col += 2
-                if col >= 6: col = 0; row += 1
-            form_layout.addWidget(group)
-        
-        save_btn = QPushButton("💾 Save Nutrition")
-        save_btn.clicked.connect(self.save_diet_entry)
-        save_btn.setStyleSheet("background-color: #a6e3a1; color: black; font-weight: bold; padding: 10px;")
-        form_layout.addWidget(save_btn)
-        
-        scroll.setWidget(form_widget)
-        layout.addWidget(scroll)
-        return tab
-
-    def _create_macro_input(self, label, suffix, layout, row, col):
-        lbl = QLabel(f"{label}:")
-        inp = QDoubleSpinBox()
-        inp.setRange(0, 1000)
-        inp.valueChanged.connect(self.auto_calculate_calories)
-        layout.addWidget(lbl, row, col)
-        layout.addWidget(inp, row, col + 1)
-        return inp
-
-    def auto_calculate_calories(self):
-        p = self.diet_protein.value() * 4
-        c = self.diet_carbs.value() * 4
-        f = self.diet_fats.value() * 9
-        self.diet_calories.setValue(int(p + c + f))
-
-    def create_sleep_tab(self):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        group = QGroupBox("Sleep Metrics")
-        group.setStyleSheet("QGroupBox { color: white; font-weight: bold; border: 1px solid #313244; }")
-        grid = QGridLayout(group)
-        self.sleep_duration = QDoubleSpinBox()
-        self.sleep_duration.setRange(0, 24)
-        grid.addWidget(QLabel("Hours:"), 0, 0)
-        grid.addWidget(self.sleep_duration, 0, 1)
-        self.sleep_quality = QSpinBox()
-        self.sleep_quality.setRange(1, 10)
-        grid.addWidget(QLabel("Quality (1-10):"), 1, 0)
-        grid.addWidget(self.sleep_quality, 1, 1)
-        layout.addWidget(group)
-        
-        save = QPushButton("Save Recovery")
-        save.clicked.connect(self.save_sleep_entry)
-        save.setStyleSheet("background-color: #a6e3a1; color: black; font-weight: bold; padding: 10px;")
-        layout.addWidget(save)
-        layout.addStretch()
-        return tab
-
-    def refresh_data(self):
-        self.load_existing_data()
-
-    def load_existing_data(self):
-        self.clear_all_forms()
+    def refresh_calendar_dots(self):
         user = self.user_manager.get_current_user()
         if not user: return
-        date_str = self.selected_date.strftime('%Y-%m-%d')
+        
+        start_date = self.calendar_strip.current_anchor.addDays(-3).toString("yyyy-MM-dd")
+        end_date = self.calendar_strip.current_anchor.addDays(3).toString("yyyy-MM-dd")
+        
+        flags = {}
+        cursor = self.db.conn.cursor()
+        
+        # Query workouts
+        w_rows = cursor.execute("SELECT session_date FROM workout_sessions WHERE user_id=? AND session_date >= ? AND session_date <= ?", (user['id'], start_date, end_date)).fetchall()
+        for r in w_rows:
+            d = r[0]
+            if d not in flags: flags[d] = []
+            if "workout" not in flags[d]: flags[d].append("workout")
+            
+        # Query diet
+        d_rows = cursor.execute("SELECT entry_date FROM diet_entries WHERE user_id=? AND entry_date >= ? AND entry_date <= ?", (user['id'], start_date, end_date)).fetchall()
+        for r in d_rows:
+            d = r[0]
+            if d not in flags: flags[d] =[]
+            if "diet" not in flags[d]: flags[d].append("diet")
+            
+        # Query sleep
+        s_rows = cursor.execute("SELECT entry_date FROM sleep_entries WHERE user_id=? AND entry_date >= ? AND entry_date <= ?", (user['id'], start_date, end_date)).fetchall()
+        for r in s_rows:
+            d = r[0]
+            if d not in flags: flags[d] = []
+            if "sleep" not in flags[d]: flags[d].append("sleep")
+            
+        self.calendar_strip.set_activity_flags(flags)
+
+    def refresh_data(self):
+        self.session_table.setRowCount(0)
+        self.diet_calories.setValue(0); self.diet_protein.setValue(0); self.diet_carbs.setValue(0); self.diet_fats.setValue(0)
+        self.slider_duration.setValue(75); self.slider_quality.setValue(7)
+        for w in self.micro_inputs.values(): w.setValue(0)
+        
+        user = self.user_manager.get_current_user()
+        if not user: return
+        date_str = self.selected_date.toString('yyyy-MM-dd')
         cursor = self.db.conn.cursor()
         
         row = cursor.execute("SELECT * FROM diet_entries WHERE user_id=? AND entry_date=?", (user['id'], date_str)).fetchone()
@@ -564,8 +771,8 @@ class TrackingWidget(QWidget):
 
         row = cursor.execute("SELECT * FROM sleep_entries WHERE user_id=? AND entry_date=?", (user['id'], date_str)).fetchone()
         if row:
-            self.sleep_duration.setValue(row['sleep_duration_hours'] or 0)
-            self.sleep_quality.setValue(row['sleep_quality'] or 0)
+            self.slider_duration.setValue(int((row['sleep_duration_hours'] or 7.5) * 10))
+            self.slider_quality.setValue(row['sleep_quality'] or 7)
 
         session = cursor.execute("SELECT id FROM workout_sessions WHERE user_id=? AND session_date=?", (user['id'], date_str)).fetchone()
         if session:
@@ -573,32 +780,22 @@ class TrackingWidget(QWidget):
             for r in rows:
                 self._add_grid_row(r['exercise_id'], r['name'], r['weight_kg'], r['reps_completed'], r['rir_actual'])
 
+        self.refresh_calendar_dots()
+
     def save_diet_entry(self):
         user = self.user_manager.get_current_user()
         micros = {k: v.value() for k, v in self.micro_inputs.items() if v.value() > 0}
-        try:
-            self.db.save_diet_entry(user['id'], self.selected_date, total_calories=self.diet_calories.value(), protein_g=self.diet_protein.value(), carbs_g=self.diet_carbs.value(), fat_g=self.diet_fats.value(), notes=f"MICROS_DATA::{json.dumps(micros)}")
-            QMessageBox.information(self, "Saved", "Nutrition Logged")
-        except: pass
+        self.db.save_diet_entry(user['id'], self.selected_date.toString('yyyy-MM-dd'), total_calories=self.diet_calories.value(), protein_g=self.diet_protein.value(), carbs_g=self.diet_carbs.value(), fat_g=self.diet_fats.value(), notes=f"MICROS_DATA::{json.dumps(micros)}")
+        self.refresh_calendar_dots()
+        QMessageBox.information(self, "Saved", "Nutrition Logged")
 
     def save_sleep_entry(self):
         user = self.user_manager.get_current_user()
-        try:
-            self.db.save_sleep_entry(user['id'], self.selected_date, sleep_duration_hours=self.sleep_duration.value(), sleep_quality=self.sleep_quality.value())
-            QMessageBox.information(self, "Saved", "Recovery Logged")
-        except: pass
+        self.db.save_sleep_entry(user['id'], self.selected_date.toString('yyyy-MM-dd'), sleep_duration_hours=self.slider_duration.value()/10, sleep_quality=self.slider_quality.value())
+        self.refresh_calendar_dots()
+        QMessageBox.information(self, "Saved", "Recovery Logged")
 
-    def clear_all_forms(self):
-        self.session_table.setRowCount(0)
-        self.diet_calories.setValue(0); self.diet_protein.setValue(0)
-        self.sleep_duration.setValue(0); self.sleep_quality.setValue(1)
-        for w in self.micro_inputs.values(): w.setValue(0)
-
-    def on_date_selected(self):
-        self.selected_date = self.calendar.selectedDate().toPyDate()
-        self.date_info_label.setText(f"Active Date: {self.selected_date}")
+    def on_date_selected(self, date_obj):
+        self.selected_date = date_obj
+        self.date_info_label.setText(f"Active Date: {self.selected_date.toString('yyyy-MM-dd')}")
         self.refresh_data()
-
-    def jump_to_today(self):
-        self.calendar.setSelectedDate(QDate.currentDate())
-        self.on_date_selected()
