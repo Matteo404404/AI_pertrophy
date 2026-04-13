@@ -1,43 +1,15 @@
 """
-Scientific Hypertrophy Trainer - Assessment Interface (AI COACH ENABLED)
+Scientific Hypertrophy Trainer - Assessment Interface
 - Modernized UI with smooth cards and clean spacing.
-- Dynamic LLM Coaching: Evaluates wrong answers and generates live feedback via Ollama.
+- Instant feedback (AI Coaching moved to Learning tab to prevent CPU lockups).
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, 
     QProgressBar, QButtonGroup, QMessageBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor
-import requests
-
-class AICoachWorker(QThread):
-    finished = pyqtSignal(str)
-    
-    def __init__(self, question, user_ans, correct_ans):
-        super().__init__()
-        self.question = question
-        self.user_ans = user_ans
-        self.correct_ans = correct_ans
-
-    def run(self):
-        prompt = (f"Act as an expert hypertrophy coach. The user was asked: '{self.question}'. "
-                  f"They answered: '{self.user_ans}', but the correct answer is '{self.correct_ans}'. "
-                  "In exactly 2 supportive, educational sentences, explain why their answer is wrong "
-                  "and clarify the correct concept. Keep it concise.")
-        try:
-            resp = requests.post(
-                "http://localhost:11434/api/generate",
-                json={"model": "qwen3:1.7b", "prompt": prompt, "stream": False},
-                timeout=15
-            )
-            if resp.status_code == 200:
-                self.finished.emit(resp.json().get("response", "").strip())
-            else:
-                self.finished.emit("")
-        except:
-            self.finished.emit("")
 
 class AssessmentWidget(QWidget):
     assessment_completed = pyqtSignal(dict)
@@ -47,7 +19,6 @@ class AssessmentWidget(QWidget):
         self.assessment_engine = assessment_engine
         self.user_manager = user_manager
         self.current_assessment = None
-        self.workers =[]  # Keep references to prevent garbage collection
         self.init_ui()
     
     def init_ui(self):
@@ -94,7 +65,7 @@ class AssessmentWidget(QWidget):
         layout.setSpacing(20)
         
         tier_status = self.user_manager.get_tier_status()
-        tiers = tier_status.get('tiers', [])
+        tiers = tier_status.get('tiers',[])
         
         descriptions =[
             "Fundamentals: Volume, Frequency, and Progressive Overload basics.",
@@ -221,7 +192,7 @@ class AssessmentWidget(QWidget):
 
     def show_results(self, results):
         self.clear_content()
-        self.lbl_title.setText("ASSESSMENT DEBRIEF & AI ANALYSIS")
+        self.lbl_title.setText("ASSESSMENT DEBRIEF")
         
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -266,19 +237,9 @@ class AssessmentWidget(QWidget):
                 r_layout.addWidget(user_lbl)
                 r_layout.addWidget(corr_lbl)
                 
-                # Dynamic AI Coaching Element
-                ai_lbl = QLabel("🤖 AI Coach is typing feedback...")
-                ai_lbl.setWordWrap(True)
-                ai_lbl.setStyleSheet("color: #89b4fa; font-style: italic; margin-top: 10px; border: none; padding: 10px; background: #181825; border-radius: 6px;")
-                r_layout.addWidget(ai_lbl)
-                
-                # Spawn worker
-                worker = AICoachWorker(ans['question_text'], ans['selected_answer'], ans['correct_answer'])
-                # Attach specific label to lambda to avoid overwriting and fallback to static explanation if Ollama fails
-                worker.finished.connect(lambda text, lbl=ai_lbl, fallback=ans.get('explanation',''): 
-                                      lbl.setText(f"🤖 <b>AI Coach:</b> {text}" if text else f"💡 {fallback}"))
-                self.workers.append(worker)
-                worker.start()
+                exp = QLabel("<i>Go to the Knowledge Base -> Mistake Review tab to get AI Coaching on this topic.</i>")
+                exp.setStyleSheet("color: #a6adc8; margin-top: 10px; border: none;")
+                r_layout.addWidget(exp)
             else:
                 res_lbl = QLabel(f"✅ Correct: {ans['selected_answer']}")
                 res_lbl.setStyleSheet("color: #a6e3a1; border: none;")

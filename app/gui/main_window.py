@@ -4,7 +4,7 @@ Scientific Hypertrophy Trainer - Main Window v2.0
 - Navigation Logic
 - Layout Management
 """
-
+from gui.analytics import AnalyticsWidget # Add this import here or at the top of the file
 import sys
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
@@ -110,11 +110,13 @@ class MainWindow(QMainWindow):
         
         self.btn_dash = self.create_nav_btn("📊  Dashboard", self.show_dashboard)
         self.btn_track = self.create_nav_btn("📝  Tracking & Logs", self.show_tracking)
+        self.btn_analytics = self.create_nav_btn("📈  Analytics", self.show_analytics) # <--- NEW BUTTON
         self.btn_learn = self.create_nav_btn("🎓  Knowledge Base", self.show_learning)
         self.btn_assess = self.create_nav_btn("🏆  Assessment", self.show_assessment)
         
         layout.addWidget(self.btn_dash)
         layout.addWidget(self.btn_track)
+        layout.addWidget(self.btn_analytics) # <--- ADD IT TO SIDEBAR
         layout.addWidget(self.btn_learn)
         layout.addWidget(self.btn_assess)
         
@@ -175,7 +177,10 @@ class MainWindow(QMainWindow):
         
         self.tracking = TrackingWidget(self.db, self.tracking_system, self.user_manager)
         self.content_stack.addWidget(self.tracking)
-        
+
+        self.analytics = AnalyticsWidget(self.db, self.tracking_system, self.user_manager)
+        self.content_stack.addWidget(self.analytics)
+
         self.learning = LearningWidget(self.db, self.user_manager)
         self.content_stack.addWidget(self.learning)
 
@@ -189,6 +194,11 @@ class MainWindow(QMainWindow):
         self.content_stack.setCurrentWidget(self.tracking)
         self.tracking.refresh_data()
         self.btn_track.setChecked(True)
+
+    def show_analytics(self):
+            self.content_stack.setCurrentWidget(self.analytics)
+            self.analytics.refresh_data() 
+            self.btn_analytics.setChecked(True)
 
     def show_learning(self):
         self.content_stack.setCurrentWidget(self.learning)

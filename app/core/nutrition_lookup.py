@@ -1,6 +1,6 @@
 """
 Nutrition food lookup - searches USDA FoodData Central, falls back to Ollama.
-NOW PULLS ALL MICRONUTRIENTS VIA ROBUST FUZZY STRING MATCHING & FOUNDATION FILTERING.
+PULLS ALL MICRONUTRIENTS VIA ROBUST FUZZY STRING MATCHING & FOUNDATION FILTERING.
 """
 
 import os
@@ -17,14 +17,13 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Map UI Keys to USDA Nutrient Name text matches (lowercased)
 NUTRIENT_MAP = {
     "calories": ["energy", "calories", "kcal"],
     "protein_g": ["protein"],
     "carbs_g": ["carbohydrate", "carbs"],
-    "fats_g": ["total lipid", "fat", "lipid"],
+    "fats_g":["total lipid", "fat", "lipid"],
     "Fiber": ["fiber"],
-    "Vitamin A": ["vitamin a", "retinol", "rae"],
+    "Vitamin A":["vitamin a", "retinol", "rae"],
     "Vitamin D3":["vitamin d", "cholecalciferol", "d2", "d3"],
     "Vitamin E":["vitamin e", "tocopherol"],
     "Vitamin K":["vitamin k", "phylloquinone", "menaquinone"],
@@ -71,8 +70,6 @@ class NutritionLookup:
     def search_foods(self, query: str) -> List[Dict]:
         if not self.api_key: return[]
         
-        # FIX: dataType as a list forces requests to use ?dataType=Foundation&dataType=SR+Legacy
-        # This filters out "Branded" foods (which hide micros like Omega-3)
         params = {
             "query": query, 
             "api_key": self.api_key, 
@@ -86,7 +83,7 @@ class NutritionLookup:
             data = resp.json()
         except Exception as e:
             logger.error(f"USDA API request failed: {e}")
-            return []
+            return[]
 
         results = []
         for food in data.get("foods",[]):
@@ -96,7 +93,6 @@ class NutritionLookup:
                 "measures":[{"name": "g", "weight_g": 1.0}, {"name": "oz", "weight_g": 28.3495}]
             }
 
-            # Robust String Matching for Nutrients
             for nutrient in food.get("foodNutrients",[]):
                 name = nutrient.get("nutrientName", "").lower()
                 unit = nutrient.get("unitName", "").lower()
@@ -104,20 +100,16 @@ class NutritionLookup:
                 
                 for ui_key, aliases in NUTRIENT_MAP.items():
                     if any(alias in name for alias in aliases):
-                        # Convert UG to IU for accurate tracking if needed
                         if ui_key == "Vitamin A" and unit == "ug": val *= 3.33
                         if ui_key == "Vitamin D3" and unit == "ug": val *= 40.0
-                        
                         entry["macros_per_100g"][ui_key] += val
 
-            # Map all available custom measures
             for m in food.get("foodMeasures",[]):
                 name = m.get("disseminationText", "serving")
                 weight = m.get("gramWeight", 0)
                 if weight > 0:
                     entry["measures"].append({"name": f"{name} ({weight}g)", "weight_g": float(weight)})
 
-            # Round everything
             for k in entry["macros_per_100g"]:
                 entry["macros_per_100g"][k] = round(entry["macros_per_100g"][k], 2)
 

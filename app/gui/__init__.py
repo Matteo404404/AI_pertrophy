@@ -6,9 +6,10 @@ from .learning import LearningWidget
 from .user_selection import UserSelectionWidget
 from .exercise_library import ExerciseLibraryDialog
 from .food_search_dialog import FoodSearchDialog
+from .analytics import AnalyticsWidget  # <--- ADDED THIS
 
-__all__ = [
+__all__ =[
     'MainWindow', 'DashboardWidget', 'AssessmentWidget',
     'TrackingWidget', 'LearningWidget', 'UserSelectionWidget',
-    'ExerciseLibraryDialog', 'FoodSearchDialog'
+    'ExerciseLibraryDialog', 'FoodSearchDialog', 'AnalyticsWidget' # <--- ADDED THIS
 ]

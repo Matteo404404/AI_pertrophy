@@ -2,7 +2,6 @@
 Scientific Hypertrophy Trainer - Tracking Interface
 - Complete UI Overhaul (Horizontal Date Strip with Activity Dots)
 - Full Workout AI Session Analyzer
-- Auto-maps all USDA Micronutrients
 """
 
 from PyQt6.QtWidgets import (
@@ -42,7 +41,6 @@ MICROS_CONFIG = {
     "Other":[("Water", "L"), ("Fiber", "g"), ("Omega-3", "g")]
 }
 
-# --- CUSTOM HORIZONTAL DATE STRIP ---
 class HorizontalWeekCalendar(QFrame):
     date_selected = pyqtSignal(QDate)
 
@@ -117,7 +115,6 @@ class HorizontalWeekCalendar(QFrame):
             date_str = date_obj.toString("yyyy-MM-dd")
             btn = self.days_buttons[i]
             
-            # Add Activity Icons
             flags = self.activity_flags.get(date_str, [])
             icons =[]
             if "workout" in flags: icons.append("💪")
@@ -139,7 +136,6 @@ class HorizontalWeekCalendar(QFrame):
                 btn.setStyleSheet("background: #313244; color: #89b4fa; font-weight: bold; font-size: 13px; border-radius: 8px; border: 1px solid #89b4fa;")
             else:
                 btn.setStyleSheet("background: transparent; color: #a6adc8; font-weight: bold; font-size: 13px; border-radius: 8px; border: none;")
-
 
 class TrackingWidget(QWidget):
     def __init__(self, db_manager, tracking_system, user_manager):
@@ -192,9 +188,6 @@ class TrackingWidget(QWidget):
         self.refresh_templates()
         self.refresh_data()
 
-    # ==========================================
-    # 🏋️ WORKOUT TAB
-    # ==========================================
     def create_workout_tab(self):
         tab = QWidget()
         layout = QHBoxLayout(tab)
@@ -269,9 +262,6 @@ class TrackingWidget(QWidget):
         layout.addWidget(grid_frame, 1)
         return tab
 
-    # ==========================================
-    # 🧪 DIET TAB
-    # ==========================================
     def create_diet_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -379,9 +369,6 @@ class TrackingWidget(QWidget):
             elif key == "fats_g": self.diet_fats.setValue(self.diet_fats.value() + val)
             elif key in self.micro_inputs: self.micro_inputs[key].setValue(self.micro_inputs[key].value() + val)
 
-    # ==========================================
-    # 😴 RECOVERY TAB
-    # ==========================================
     def create_sleep_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -452,9 +439,6 @@ class TrackingWidget(QWidget):
             QSlider::handle:horizontal {{ background: white; width: 20px; margin: -6px 0; border-radius: 10px; }}
         """
 
-    # ==========================================
-    # DATA LOGIC & AI PREDICTION
-    # ==========================================
     def refresh_templates(self):
         self.combo_templates.clear()
         try:
@@ -564,7 +548,6 @@ class TrackingWidget(QWidget):
         except Exception as e: QMessageBox.warning(self, "AI Error", str(e))
 
     def on_predict_full_session(self):
-        """Analyzes the ENTIRE workout grid context"""
         if not self.ai_predictor: return
         if self.session_table.rowCount() == 0:
             QMessageBox.warning(self, "Empty", "Load a protocol or add exercises first.")
@@ -614,7 +597,7 @@ class TrackingWidget(QWidget):
         s1 = QLabel(f"Total Movements: {len(exercises)}")
         s2 = QLabel(f"Total Sets: {total_sets}")
         s3 = QLabel(f"Est. Volume: {total_volume:.1f} kg")
-        for s in [s1, s2, s3]:
+        for s in[s1, s2, s3]:
             s.setStyleSheet("background: #262639; padding: 10px; border-radius: 6px; font-weight: bold;")
             stats_layout.addWidget(s)
         layout.addLayout(stats_layout)
@@ -722,21 +705,18 @@ class TrackingWidget(QWidget):
         flags = {}
         cursor = self.db.conn.cursor()
         
-        # Query workouts
         w_rows = cursor.execute("SELECT session_date FROM workout_sessions WHERE user_id=? AND session_date >= ? AND session_date <= ?", (user['id'], start_date, end_date)).fetchall()
         for r in w_rows:
             d = r[0]
             if d not in flags: flags[d] = []
             if "workout" not in flags[d]: flags[d].append("workout")
             
-        # Query diet
         d_rows = cursor.execute("SELECT entry_date FROM diet_entries WHERE user_id=? AND entry_date >= ? AND entry_date <= ?", (user['id'], start_date, end_date)).fetchall()
         for r in d_rows:
             d = r[0]
             if d not in flags: flags[d] =[]
             if "diet" not in flags[d]: flags[d].append("diet")
             
-        # Query sleep
         s_rows = cursor.execute("SELECT entry_date FROM sleep_entries WHERE user_id=? AND entry_date >= ? AND entry_date <= ?", (user['id'], start_date, end_date)).fetchall()
         for r in s_rows:
             d = r[0]

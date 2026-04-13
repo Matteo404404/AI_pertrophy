@@ -5,6 +5,9 @@ Evidence-based muscle building through progressive knowledge assessment
 
 import sys
 import os
+import subprocess
+import requests
+import time
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
@@ -20,131 +23,182 @@ except ImportError as e:
     print(f"❌ Critical Import Error: {e}")
     sys.exit(1)
 
+def ensure_ollama():
+    """Silently starts Ollama in the background if it isn't running."""
+    try:
+        requests.get("http://localhost:11434/", timeout=1)
+        print("✅ Ollama AI Engine is already running.")
+        return None
+    except requests.exceptions.ConnectionError:
+        print("⏳ Starting Ollama AI Engine in the background...")
+        process = subprocess.Popen(["ollama", "serve"], 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        )
+        time.sleep(2) 
+        print("✅ Ollama AI Engine Online.")
+        return process
+
 def apply_modern_theme(app):
     """
-    Applies a professional 'Scientific Dark' theme.
-    Colors: Deep Blue/Grey background, clean white text, vibrant accents.
+    ULTRA-PREMIUM 'Silicon Valley' Dark Theme.
+    Sleek pill buttons, glowing focus states, floating cards, ultra-thin progress bars.
     """
     theme = """
     /* GLOBAL RESET */
     QWidget {
-        background-color: #1e1e2e; /* Dark Navy Background */
-        color: #cdd6f4;            /* Soft White Text */
-        font-family: 'Segoe UI', 'Roboto', sans-serif;
+        background-color: #11111b; /* Deepest Navy */
+        color: #cdd6f4;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
         font-size: 14px;
     }
 
-    /* CARD SYSTEM */
+    /* FLOATING CARD SYSTEM */
     QFrame, QGroupBox {
-        background-color: #262639; /* Lighter Card Background */
-        border: 1px solid #313244;
-        border-radius: 12px;
+        background-color: #181825; /* Elevated Surface */
+        border: 1px solid #2a2b3c;
+        border-radius: 16px; /* Smooth rounded corners */
     }
     
     QGroupBox {
         margin-top: 24px;
-        padding-top: 15px;
-        font-weight: bold;
-        font-size: 13px;
+        padding-top: 20px;
+        font-weight: 900;
+        font-size: 12px;
+        letter-spacing: 1px;
         text-transform: uppercase;
-        color: #89b4fa; /* Accent Blue */
+        color: #cba6f7; /* Purple Accent */
     }
     QGroupBox::title {
         subcontrol-origin: margin;
-        left: 15px;
-        padding: 0 5px;
-        background-color: #1e1e2e; /* Matches Window Bg to look floating */
-    }
-
-    /* INPUT FIELDS */
-    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QTimeEdit {
-        background-color: #181825;
-        border: 1px solid #45475a;
+        left: 20px;
+        padding: 0 8px;
+        background-color: #11111b; 
         border-radius: 6px;
-        padding: 8px;
-        color: #ffffff;
-        font-weight: bold;
-    }
-    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-        border: 1px solid #89b4fa; /* Focus Blue */
-        background-color: #1e1e2e;
     }
 
-    /* BUTTONS */
+    /* SLEEK INPUT FIELDS */
+    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QTimeEdit {
+        background-color: #1e1e2e;
+        border: 1px solid #313244;
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: #ffffff;
+        font-weight: 600;
+        selection-background-color: #89b4fa;
+    }
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+        border: 1px solid #89b4fa; /* Neon Blue Glow */
+        background-color: #262639;
+    }
+    
+    QComboBox::drop-down { border: none; }
+    QComboBox::down-arrow { 
+        image: none; 
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid #a6adc8;
+        margin-right: 10px;
+    }
+
+    /* MODERN PILL BUTTONS */
     QPushButton {
         background-color: #313244;
         border: none;
-        border-radius: 8px;
-        padding: 10px 20px;
+        border-radius: 10px; /* Pill shape */
+        padding: 12px 24px;
         color: #cdd6f4;
-        font-weight: 600;
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 0.5px;
     }
     QPushButton:hover {
         background-color: #45475a;
     }
     QPushButton:pressed {
         background-color: #585b70;
-    }
-    
-    /* SPECIFIC BUTTON COLORS */
-    QPushButton[class="action_btn"] {
-        background-color: #89b4fa; /* Blue */
-        color: #1e1e2e;
-    }
-    QPushButton[class="success_btn"] {
-        background-color: #a6e3a1; /* Green */
-        color: #1e1e2e;
-    }
-    QPushButton[class="danger_btn"] {
-        background-color: #f38ba8; /* Red */
-        color: #1e1e2e;
+        padding-top: 14px; /* Press effect */
+        padding-bottom: 10px;
     }
 
-    /* TABS */
+    /* MINIMALIST TABS */
     QTabWidget::pane {
-        border: 1px solid #313244;
-        border-radius: 12px;
-        background: #262639;
+        border: none;
+        background: transparent;
     }
     QTabBar::tab {
-        background: #1e1e2e;
+        background: transparent;
+        color: #6c7086;
+        padding: 10px 20px;
+        font-weight: 800;
+        font-size: 15px;
+        margin-right: 10px;
+        border-bottom: 3px solid transparent;
+    }
+    QTabBar::tab:hover {
         color: #a6adc8;
-        padding: 12px 24px;
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        margin-right: 2px;
     }
     QTabBar::tab:selected {
-        background: #262639;
-        color: #ffffff;
-        border-bottom: 2px solid #89b4fa;
+        color: #89b4fa;
+        border-bottom: 3px solid #89b4fa; /* Just a sleek bottom line */
     }
 
-    /* SCROLL BARS */
+    /* MAC-STYLE INVISIBLE SCROLLBARS */
     QScrollBar:vertical {
-        background: #1e1e2e;
-        width: 10px;
+        background: transparent;
+        width: 8px;
+        margin: 0px;
     }
     QScrollBar::handle:vertical {
+        background: #313244;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
         background: #45475a;
-        border-radius: 5px;
     }
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
         height: 0px;
     }
-    
+
+    /* BEAUTIFUL PROGRESS BARS */
+    QProgressBar {
+        background-color: #1e1e2e;
+        border: none;
+        border-radius: 4px;
+        height: 8px;
+        text-align: center;
+        color: transparent; /* Hide internal text */
+    }
+    QProgressBar::chunk {
+        background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #89b4fa, stop:1 #cba6f7);
+        border-radius: 4px;
+    }
+
     /* TABLES */
     QTableWidget {
         background-color: #181825;
-        gridline-color: #313244;
-        border-radius: 8px;
+        gridline-color: #2a2b3c;
+        border: none;
+        border-radius: 12px;
     }
     QHeaderView::section {
-        background-color: #313244;
-        padding: 8px;
+        background-color: #1e1e2e;
+        padding: 12px;
         border: none;
-        font-weight: bold;
-        color: #cdd6f4;
+        font-weight: 900;
+        color: #a6adc8;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 1px;
+    }
+    QTableWidget::item {
+        padding: 10px;
+        border-bottom: 1px solid #2a2b3c;
+    }
+    QTableWidget::item:selected {
+        background-color: rgba(137, 180, 250, 0.15); /* Transparent blue highlight */
+        color: #89b4fa;
     }
     """
     app.setStyleSheet(theme)
@@ -154,21 +208,29 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     
+    ollama_process = ensure_ollama()
+    
     app = QApplication(sys.argv)
     app.setApplicationName("Scientific Hypertrophy Trainer")
     app.setOrganizationName("Hypertrophy AI")
     
-    # APPLY THE NEW LOOK
     apply_modern_theme(app)
     
     try:
         window = MainWindow()
         window.db.seed_scientific_exercises()
-        
         window.show()
-        sys.exit(app.exec())
+        exit_code = app.exec()
+        
+        if ollama_process:
+            print("🛑 Shutting down background AI Engine...")
+            ollama_process.terminate()
+            
+        sys.exit(exit_code)
     except Exception as e:
         print(f"❌ CRASHED: {e}")
+        if ollama_process:
+            ollama_process.terminate()
         import traceback
         traceback.print_exc()
 
