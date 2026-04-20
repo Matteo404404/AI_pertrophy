@@ -504,50 +504,6 @@ class DatabaseManager:
         
         self.conn.commit()
     
-    def create_system_exercises(self):
-        """Create comprehensive exercise database"""
-        # This would be a very long list - keeping it abbreviated
-        exercises = [
-            # Chest exercises
-            ('Barbell Bench Press', 'push', 'barbell', 'chest', 'shoulders,triceps', 'intermediate', True, 'Compound pressing movement'),
-            ('Incline Dumbbell Press', 'push', 'dumbbell', 'chest', 'shoulders,triceps', 'intermediate', True, 'Upper chest focus'),
-            ('Cable Chest Fly', 'push', 'cable', 'chest', '', 'beginner', False, 'Isolation movement'),
-            
-            # Back exercises
-            ('Deadlift', 'pull', 'barbell', 'back', 'hamstrings,glutes', 'advanced', True, 'Full posterior chain'),
-            ('Pull-ups', 'pull', 'bodyweight', 'back', 'biceps', 'intermediate', True, 'Vertical pulling'),
-            ('Barbell Row', 'pull', 'barbell', 'back', 'biceps', 'intermediate', True, 'Horizontal pulling'),
-            
-            # Leg exercises
-            ('Barbell Squat', 'legs', 'barbell', 'quads', 'glutes,hamstrings', 'intermediate', True, 'King of exercises'),
-            ('Romanian Deadlift', 'legs', 'barbell', 'hamstrings', 'glutes,back', 'intermediate', True, 'Hamstring focus'),
-            ('Leg Press', 'legs', 'machine', 'quads', 'glutes', 'beginner', True, 'Quad dominant'),
-            
-            # Shoulder exercises
-            ('Overhead Press', 'push', 'barbell', 'shoulders', 'triceps', 'intermediate', True, 'Vertical press'),
-            ('Lateral Raise', 'push', 'dumbbell', 'shoulders', '', 'beginner', False, 'Lateral delt isolation'),
-            
-            # Arms
-            ('Barbell Curl', 'pull', 'barbell', 'biceps', '', 'beginner', False, 'Bicep mass builder'),
-            ('Tricep Pushdown', 'push', 'cable', 'triceps', '', 'beginner', False, 'Tricep isolation')
-        ]
-        
-        cursor = self.conn.cursor()
-        
-        for exercise in exercises:
-            try:
-                cursor.execute("""
-                    INSERT INTO exercises 
-                    (name, category, equipment, muscle_group_primary, 
-                     muscle_groups_secondary, difficulty_level, is_compound, instructions)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, exercise)
-            except sqlite3.IntegrityError:
-                # Exercise already exists
-                pass
-        
-        self.conn.commit()
-    
     # ==========================================
     # EXISTING METHODS (UNCHANGED)
     # ==========================================
@@ -672,6 +628,8 @@ class DatabaseManager:
                   kwargs.get('hydration_liters'), kwargs.get('meal_timing'),
                   kwargs.get('creatine_taken', False), kwargs.get('notes'),
                   existing[0]))
+            self.conn.commit()
+            return existing[0]
         else:
             cursor.execute("""
                 INSERT INTO diet_entries
@@ -684,8 +642,8 @@ class DatabaseManager:
                   kwargs.get('fiber_g'), kwargs.get('sodium_mg'), kwargs.get('sugar_g'),
                   kwargs.get('hydration_liters'), kwargs.get('meal_timing'),
                   kwargs.get('creatine_taken', False), kwargs.get('notes')))
-        self.conn.commit()
-        return cursor.lastrowid
+            self.conn.commit()
+            return cursor.lastrowid
     
     def get_diet_entries(self, user_id, days=30):
         """Get diet entries for user"""
@@ -713,6 +671,8 @@ class DatabaseManager:
                   kwargs.get('sleep_latency_minutes'), kwargs.get('awakenings'),
                   kwargs.get('sleep_environment_rating'), kwargs.get('notes'),
                   existing[0]))
+            self.conn.commit()
+            return existing[0]
         else:
             cursor.execute("""
                 INSERT INTO sleep_entries
@@ -725,8 +685,8 @@ class DatabaseManager:
                   kwargs.get('rem_sleep_hours'), kwargs.get('sleep_latency_minutes'),
                   kwargs.get('awakenings'), kwargs.get('sleep_environment_rating'),
                   kwargs.get('notes')))
-        self.conn.commit()
-        return cursor.lastrowid
+            self.conn.commit()
+            return cursor.lastrowid
     
     def get_sleep_entries(self, user_id, days=30):
         """Get sleep entries for user"""
@@ -1877,9 +1837,11 @@ class DatabaseManager:
         """Fetch system templates and user-created ones"""
         try:
             if user_id:
-                return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
-            return self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
-        except:
+                rows = self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL OR user_id=?", (user_id,)).fetchall()
+            else:
+                rows = self.conn.execute("SELECT * FROM workout_templates WHERE user_id IS NULL").fetchall()
+            return [dict(row) for row in rows]
+        except Exception:
             return []
 
     def get_template_details(self, template_id):
@@ -1892,8 +1854,9 @@ class DatabaseManager:
             ORDER BY te.order_index ASC
         """
         try:
-            return self.conn.execute(query, (template_id,)).fetchall()
-        except:
+            rows = self.conn.execute(query, (template_id,)).fetchall()
+            return [dict(row) for row in rows]
+        except Exception:
             return []
 
     def create_custom_template(self, user_id, name, exercises_data):

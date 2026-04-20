@@ -53,7 +53,7 @@ setup(
     
     # Dependencies
     install_requires=read_requirements(),
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     
     # Optional dependencies
     extras_require={
@@ -91,10 +91,10 @@ setup(
         "Topic :: Scientific/Engineering :: Medical Science Apps.",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
     ],
     
@@ -102,7 +102,7 @@ setup(
     
     # Package data
     package_data={
-        'ml': ['data/*.yaml', 'models/*.yaml'],
+        'ml_engine': ['data/*.yaml', 'models/*.yaml'],
     },
     
     # Project URLs

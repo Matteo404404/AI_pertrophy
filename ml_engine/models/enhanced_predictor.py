@@ -68,7 +68,7 @@ class EnhancedLiftingPredictor:
             
             # Step 4: Make prediction using core predictor
             logger.info("Making prediction")
-            from ml.models.simple_lifting_predictor import SimpleLiftingPredictor
+            from ml_engine.models.simple_lifting_predictor import SimpleLiftingPredictor
             predictor = SimpleLiftingPredictor()
             forecast = predictor.predict_lifting_gains(clean_data)
             
@@ -193,8 +193,8 @@ class EnhancedLiftingPredictor:
         
         # Handle infinite values
         clean.replace([np.inf, -np.inf], np.nan, inplace=True)
-        clean.fillna(method='forward', inplace=True)
-        clean.fillna(method='backward', inplace=True)
+        clean.ffill(inplace=True)
+        clean.bfill(inplace=True)
         
         return clean
     

@@ -137,7 +137,7 @@ class UserSelectionWidget(QWidget):
         name = QLabel(user['username'])
         name.setStyleSheet("font-size: 20px; font-weight: 900; color: white; border: none; background: transparent;")
         
-        tier = user.get('current_tier', 0) + 1
+        tier = user.get('tier_progress', {}).get('current_tier', 0) + 1
         details = QLabel(f"TIER {tier} CLEARANCE  •  {user['experience_level'].upper()}")
         details.setStyleSheet("color: #a6adc8; font-size: 12px; font-weight: bold; border: none; background: transparent; letter-spacing: 1px;")
         
@@ -165,7 +165,7 @@ class UserSelectionWidget(QWidget):
             child = self.users_layout.takeAt(0)
             if child.widget(): child.widget().deleteLater()
             
-        users = self.db.get_all_users()
+        users = self.user_manager.get_all_users()
         if not users:
             empty = QLabel("No active athletes.\nCreate a profile to begin.")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)

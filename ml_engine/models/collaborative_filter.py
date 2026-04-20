@@ -390,7 +390,7 @@ def generate_predictions_for_new_user(db_manager, user_id: int,
     Returns:
         Dict: {exercise_id: {horizon: prediction_dict}}
     """
-    from ml.models.user_embedding import UserEmbeddingCalculator
+    from ml_engine.models.user_embedding import UserEmbeddingCalculator
     
     # Initialize components
     embedding_calc = UserEmbeddingCalculator(db_manager)

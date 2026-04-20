@@ -268,7 +268,7 @@ class StrengthPredictorTrainer:
         
         torch.save({
             'epoch': epoch,
-            'model_state': self.model.state_dict(),
+            'model_state_dict': self.model.state_dict(),
             'optimizer_state': self.optimizer.state_dict(),
             'metrics': metrics,
             'history': self.training_history,
@@ -280,7 +280,7 @@ class StrengthPredictorTrainer:
         """Load model from checkpoint."""
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         
-        self.model.load_state_dict(checkpoint['model_state'])
+        self.model.load_state_dict(checkpoint['model_state_dict'])
         if 'optimizer_state' in checkpoint:
             self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         

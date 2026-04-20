@@ -199,7 +199,17 @@ class LearningWidget(QWidget):
         
         worker = RAGChatWorker(msg)
         def on_reply(text):
-            # Remove the "thinking" text by hacking the HTML slightly, or just append
+            cursor = self.chat_display.textCursor()
+            self.chat_display.setTextCursor(cursor)
+            html = self.chat_display.toHtml()
+            thinking_marker = "Coach is thinking..."
+            if thinking_marker in html:
+                idx = html.rfind(thinking_marker)
+                start = html.rfind("<i", 0, idx)
+                end = html.find("</i>", idx) + 4
+                if start != -1 and end > 4:
+                    html = html[:start] + html[end:]
+                    self.chat_display.setHtml(html)
             self.chat_display.append(f"<b style='color:#89b4fa;'>🤖 AI Coach:</b> {text}")
         
         worker.finished.connect(on_reply)
@@ -219,7 +229,7 @@ class LearningWidget(QWidget):
         user = self.user_manager.get_current_user()
         if not user: return
         
-        profile = self.db.get_user_ml_profile(user['id'])
+        profile = self.user_manager.get_user_ml_profile(user['id'])
         skills =[("Training Literacy", profile.get('training_literacy_index', 0.5)), ("Recovery IQ", profile.get('recovery_knowledge', 0.5)), ("Load Management", profile.get('load_management_score', 0.5)), ("Technique", profile.get('technique_score', 0.5))]
         
         for name, score in skills:

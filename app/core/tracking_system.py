@@ -5,7 +5,7 @@ Analytics and statistics for diet, sleep, and training data
 
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from statistics import mean, stdev
+from statistics import mean
 
 
 class TrackingSystem:
@@ -42,17 +42,13 @@ class TrackingSystem:
                 'entries_count': 0,
                 'avg_protein_g': 0,
                 'avg_calories': 0,
-                'avg_protein_per_kg': 0,
                 'consistency_percentage': 0,
                 'trend': 'no_data'
             }
         
         # Calculate averages
         avg_protein = round(mean([e['protein_g'] for e in entries]), 1)
-        avg_calories = round(mean([e['calories'] for e in entries]))
-        
-        protein_per_kg_values = [e['protein_per_kg'] for e in entries if e['protein_per_kg']]
-        avg_protein_per_kg = round(mean(protein_per_kg_values), 2) if protein_per_kg_values else 0
+        avg_calories = round(mean([e['total_calories'] for e in entries]))
         
         # Calculate consistency (% of days tracked)
         consistency = round((len(entries) / days) * 100, 1)
@@ -64,7 +60,6 @@ class TrackingSystem:
             'entries_count': len(entries),
             'avg_protein_g': avg_protein,
             'avg_calories': avg_calories,
-            'avg_protein_per_kg': avg_protein_per_kg,
             'consistency_percentage': consistency,
             'trend': trend,
             'last_entry': entries[0] if entries else None
@@ -82,12 +77,13 @@ class TrackingSystem:
         stats = self.calculate_diet_stats(user_id, 7)
         
         # Check protein intake
-        if user_weight_kg and stats['avg_protein_per_kg'] > 0:
-            if stats['avg_protein_per_kg'] < 1.6:
+        if user_weight_kg and stats['avg_protein_g'] > 0:
+            protein_per_kg = stats['avg_protein_g'] / user_weight_kg
+            if protein_per_kg < 1.6:
                 recommendations.append({
                     'category': 'Protein',
                     'priority': 'high',
-                    'message': f"Current: {stats['avg_protein_per_kg']}g/kg. Target: 1.6-2.2g/kg for optimal hypertrophy",
+                    'message': f"Current: {round(protein_per_kg, 2)}g/kg. Target: 1.6-2.2g/kg for optimal hypertrophy",
                     'suggestion': f"Increase protein by {round((1.6 * user_weight_kg) - stats['avg_protein_g'])}g daily"
                 })
         
@@ -206,29 +202,28 @@ class TrackingSystem:
         if not entries:
             return {
                 'entries_count': 0,
-                'total_training_minutes': 0,
-                'avg_session_duration': 0,
+                'total_volume': 0,
+                'avg_volume_per_session': 0,
                 'sessions_per_week': 0,
-                'avg_session_quality': 0
+                'avg_exercises_per_session': 0
             }
         
-        # Calculate statistics
-        total_minutes = sum([e['duration_minutes'] for e in entries])
-        avg_duration = round(mean([e['duration_minutes'] for e in entries]))
+        volumes = [e.get('total_volume', 0) or 0 for e in entries]
+        total_vol = sum(volumes)
+        avg_vol = round(mean(volumes)) if volumes else 0
         
-        quality_scores = [e['session_quality'] for e in entries if e['session_quality']]
-        avg_quality = round(mean(quality_scores), 1) if quality_scores else 0
+        ex_counts = [e.get('exercise_count', 0) or 0 for e in entries]
+        avg_ex = round(mean(ex_counts), 1) if ex_counts else 0
         
-        # Sessions per week
         weeks = days / 7
         sessions_per_week = round(len(entries) / weeks, 1)
         
         return {
             'entries_count': len(entries),
-            'total_training_minutes': total_minutes,
-            'avg_session_duration': avg_duration,
+            'total_volume': total_vol,
+            'avg_volume_per_session': avg_vol,
             'sessions_per_week': sessions_per_week,
-            'avg_session_quality': avg_quality,
+            'avg_exercises_per_session': avg_ex,
             'last_entry': entries[0] if entries else None
         }
     
@@ -257,12 +252,13 @@ class TrackingSystem:
         
         matched_pairs = []
         for training in training_entries:
-            if training['entry_date'] in sleep_by_date:
-                sleep = sleep_by_date[training['entry_date']]
-                if sleep['sleep_quality'] and training['session_quality']:
+            if training['session_date'] in sleep_by_date:
+                sleep = sleep_by_date[training['session_date']]
+                training_volume = training.get('total_volume', 0)
+                if sleep['sleep_quality'] and training_volume:
                     matched_pairs.append({
                         'sleep_quality': sleep['sleep_quality'],
-                        'training_quality': training['session_quality']
+                        'training_quality': training_volume
                     })
         
         if len(matched_pairs) < 3:
@@ -321,7 +317,7 @@ class TrackingSystem:
                 return 'decreasing'
             else:
                 return 'stable'
-        except:
+        except Exception:
             return 'insufficient_data'
     
     def _calculate_correlation(self, x: List[float], y: List[float]) -> float:
@@ -344,7 +340,7 @@ class TrackingSystem:
                 return 0.0
             
             return numerator / denominator
-        except:
+        except Exception:
             return 0.0
 
 

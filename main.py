@@ -218,7 +218,6 @@ def main():
     
     try:
         window = MainWindow()
-        window.db.seed_scientific_exercises()
         window.show()
         exit_code = app.exec()
         

@@ -108,11 +108,12 @@ class BayesianLinear(nn.Module):
             weight = self.weight_mu
             bias = self.bias_mu
         
-        mean = F.linear(x, self.weight_mu, self.bias_mu)
+        output = F.linear(x, weight, bias)
+        
         uncertainty = F.linear(x ** 2, torch.exp(self.weight_log_sigma) ** 2, 
                               torch.exp(self.bias_log_sigma) ** 2) ** 0.5
         
-        return mean, uncertainty
+        return output, uncertainty
 
 
 class StrengthPredictorLSTM(nn.Module):
@@ -244,21 +245,22 @@ class StrengthPredictorLSTM(nn.Module):
             Dict with predictions and confidence intervals
         """
         self.eval()
+        # Re-enable dropout for MC sampling
+        for m in self.modules():
+            if isinstance(m, nn.Dropout):
+                m.train()
+        
         with torch.no_grad():
             preds_list = []
             uncert_list = []
             
-            # MC dropout sampling
             for _ in range(num_samples):
                 pred, uncert = self.forward(x)
                 preds_list.append(pred)
                 uncert_list.append(uncert)
             
-            # Average predictions
             mean_pred = torch.stack(preds_list).mean(dim=0)
             pred_std = torch.stack(preds_list).std(dim=0)
-            
-            # Average uncertainty
             mean_uncert = torch.stack(uncert_list).mean(dim=0)
         
         return {

@@ -226,39 +226,40 @@ def create_dataloaders(df: pd.DataFrame, batch_size: int = 32,
                       train_split: float = 0.8) -> Tuple:
     """Create train and validation DataLoaders - SINGLE THREADED (STABLE)."""
     
-    # Create full dataset
-    full_dataset = StrengthPredictionDataset(df, sequence_length=14, normalize=True)
+    # Split raw data BEFORE normalization to prevent leakage
+    grouped = df.groupby(['user_id', 'exercise_id'])
+    all_groups = list(grouped.groups.keys())
     
-    # Split into train/val
-    dataset_size = len(full_dataset)
-    train_size = int(train_split * dataset_size)
-    val_size = dataset_size - train_size
+    np.random.seed(42)
+    np.random.shuffle(all_groups)
+    split_idx = int(len(all_groups) * train_split)
     
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        full_dataset, 
-        [train_size, val_size],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_keys = set(all_groups[:split_idx])
     
-    logger.info(f"Created dataloaders: {train_size} train, {val_size} val")
+    train_mask = df.apply(lambda r: (r['user_id'], r['exercise_id']) in train_keys, axis=1)
+    train_df = df[train_mask].copy()
+    val_df = df[~train_mask].copy()
     
-    # SINGLE-THREADED CONFIGURATION
-    # This is the ONLY configuration that works reliably
+    # Compute stats on training data only
+    train_dataset = StrengthPredictionDataset(train_df, sequence_length=14, normalize=True)
+    
+    # Apply train stats to validation data
+    val_dataset = StrengthPredictionDataset(val_df, sequence_length=14, normalize=False)
+    val_dataset.feature_stats = train_dataset.feature_stats
+    val_dataset._normalize_features()
+    val_dataset.sequences = val_dataset._build_sequences()
+    
+    logger.info(f"Created dataloaders: {len(train_dataset)} train, {len(val_dataset)} val (no leakage)")
+    
     train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=0,              # MUST BE 0
-        pin_memory=True
+        train_dataset, batch_size=batch_size, shuffle=True,
+        num_workers=0, pin_memory=True
     )
     
     val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=0,              # MUST BE 0
-        pin_memory=True
+        val_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=0, pin_memory=True
     )
     
-    return train_loader, val_loader, full_dataset
+    return train_loader, val_loader, train_dataset
 

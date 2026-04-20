@@ -71,7 +71,7 @@ class UserManager:
             raise ValueError(f"Experience level must be one of: {valid_experience}")
         
         # Create in database
-        user_id = self.db.create_user(username, experience_level, primary_goal, weight_kg)
+        user_id = self.db.create_user(username, experience_level, primary_goal, weight_kg=weight_kg)
         user = self.db.get_user_by_id(user_id)
         
         print(f"✅ Created user: {username} ({experience_level}, {primary_goal})")
@@ -252,6 +252,8 @@ class UserManager:
     
     def _categorize_mistake(self, question_text: str) -> str:
         """Categorize question into concept area"""
+        if not question_text:
+            return 'General Hypertrophy'
         text_lower = question_text.lower()
         
         if any(kw in text_lower for kw in ['volume', 'sets', 'mrv']):

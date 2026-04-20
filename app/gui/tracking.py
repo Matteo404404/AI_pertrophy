@@ -168,6 +168,7 @@ class TrackingWidget(QWidget):
         self.date_info_label.setStyleSheet("font-weight: bold; color: #fab387; font-size: 16px; margin-left: 15px;")
         header_row.addWidget(self.date_info_label)
         header_row.addStretch()
+        main_layout.addLayout(header_row)
         
         self.calendar_strip = HorizontalWeekCalendar()
         self.calendar_strip.date_selected.connect(self.on_date_selected)
@@ -362,12 +363,22 @@ class TrackingWidget(QWidget):
         dialog.exec()
 
     def _apply_food_macros(self, macros):
-        for key, val in macros.items():
-            if key == "calories": self.diet_calories.setValue(self.diet_calories.value() + int(val))
-            elif key == "protein_g": self.diet_protein.setValue(self.diet_protein.value() + val)
-            elif key == "carbs_g": self.diet_carbs.setValue(self.diet_carbs.value() + val)
-            elif key == "fats_g": self.diet_fats.setValue(self.diet_fats.value() + val)
-            elif key in self.micro_inputs: self.micro_inputs[key].setValue(self.micro_inputs[key].value() + val)
+        self.diet_protein.blockSignals(True)
+        self.diet_carbs.blockSignals(True)
+        self.diet_fats.blockSignals(True)
+        
+        if "protein_g" in macros:
+            self.diet_protein.setValue(self.diet_protein.value() + macros["protein_g"])
+        if "carbs_g" in macros:
+            self.diet_carbs.setValue(self.diet_carbs.value() + macros["carbs_g"])
+        if "fats_g" in macros:
+            self.diet_fats.setValue(self.diet_fats.value() + macros["fats_g"])
+        if "calories" in macros:
+            self.diet_calories.setValue(self.diet_calories.value() + int(macros["calories"]))
+        
+        self.diet_protein.blockSignals(False)
+        self.diet_carbs.blockSignals(False)
+        self.diet_fats.blockSignals(False)
 
     def create_sleep_tab(self):
         tab = QWidget()
