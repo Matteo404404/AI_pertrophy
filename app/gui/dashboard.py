@@ -1,5 +1,5 @@
 """
-Scientific Hypertrophy Trainer - Dashboard v4.0 (God-Tier HUD)
+Scientific Hypertrophy Trainer - Dashboard
 """
 
 from PyQt6.QtWidgets import (

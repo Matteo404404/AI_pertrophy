@@ -4,7 +4,6 @@ PyTorch Dataset for Strength Prediction
 Handles sequence construction, feature normalization, and batch loading.
 Each sequence is 14 days of training history → 4 prediction horizons.
 
-Author: AI_PERTROPHY - Task 3
 """
 
 import torch
@@ -32,8 +31,6 @@ FEATURE_COLUMNS = [
     'resting_heart_rate', 'session_rpe', 'recovery_quality'
 ]
 
-# Then when extracting features:
-#features = sequence_df[FEATURE_COLUMNS].values  # shape: (14, 35)
 
 class StrengthPredictionDataset(Dataset):
     """
@@ -60,9 +57,6 @@ class StrengthPredictionDataset(Dataset):
         self.normalize = normalize
         self.feature_columns = FEATURE_COLUMNS
 
-        # Feature columns
-     #   self.feature_columns = self._get_feature_columns()
-        
         # Normalization statistics
         self.feature_stats = {}
         if normalize:
@@ -73,37 +67,6 @@ class StrengthPredictionDataset(Dataset):
         self.sequences = self._build_sequences()
         
         logger.info(f"Created dataset with {len(self.sequences)} sequences")
-    
-    # def _get_feature_columns(self) -> List[str]:
-    #     """Get list of feature columns to use."""
-    #     features = [
-    #         # Performance
-    #         'weight_kg', 'reps', 'rir', 'total_sets',
-            
-    #         # User profile (static)
-    #         'age', 'weight_kg_user', 'height_cm', 'body_fat_pct',
-            
-    #         # Assessment (static per user)
-    #         'assessment_score', 'training_literacy_index', 
-    #         'load_management_score', 'technique_score', 'recovery_knowledge',
-            
-    #         # Diet
-    #         'calories', 'protein_g', 'carbs_g', 'fats_g', 'hydration_l',
-    #         'meal_timing_score', 'diet_consistency',
-            
-    #         # Sleep
-    #         'sleep_duration', 'sleep_quality', 'deep_sleep_pct', 'rem_sleep_pct',
-    #         'sleep_consistency',
-            
-    #         # Supplements
-    #         'creatine_taken', 'caffeine_mg', 'beta_alanine_taken', 
-    #         'protein_shake_taken', 'supplement_count',
-            
-    #         # Recovery
-    #         'days_since_last_session', 'weekly_volume', 'weekly_frequency',
-    #         'fatigue_index', 'recovery_score',
-    #     ]
-    #     return features
     
     def _compute_normalization_stats(self):
         """Compute mean and std for each feature."""
@@ -195,7 +158,7 @@ class StrengthPredictionDataset(Dataset):
         input_df = seq_data["input_seq"]
         targets = seq_data["targets"]
 
-        # --- Extract features as a matrix in the fixed 35-column order ---
+        # Extract features as a matrix
         missing = [c for c in self.feature_columns if c not in input_df.columns]
         if missing:
             raise KeyError(f"Missing feature columns in input_df: {missing}")
@@ -203,7 +166,7 @@ class StrengthPredictionDataset(Dataset):
         x_np = input_df[self.feature_columns].to_numpy(dtype="float32")  # (14, 35)
         input_tensor = torch.from_numpy(x_np)
 
-        # --- Build output tensor (4 horizons × 3 outputs = 12) ---
+        # Build output tensor
         output_list = []
         for horizon in self.predict_horizons:
             target = targets[horizon]
@@ -224,7 +187,7 @@ class StrengthPredictionDataset(Dataset):
 
 def create_dataloaders(df: pd.DataFrame, batch_size: int = 32, 
                       train_split: float = 0.8) -> Tuple:
-    """Create train and validation DataLoaders - SINGLE THREADED (STABLE)."""
+    """Create train and validation DataLoaders."""
     
     # Split raw data BEFORE normalization to prevent leakage
     grouped = df.groupby(['user_id', 'exercise_id'])

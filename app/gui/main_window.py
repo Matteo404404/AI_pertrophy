@@ -1,10 +1,10 @@
 """
-Scientific Hypertrophy Trainer - Main Window v2.0
+Scientific Hypertrophy Trainer - Main Window
 - Professional Dark Sidebar
 - Navigation Logic
 - Layout Management
 """
-from gui.analytics import AnalyticsWidget # Add this import here or at the top of the file
+from gui.analytics import AnalyticsWidget
 import sys
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
@@ -110,13 +110,13 @@ class MainWindow(QMainWindow):
         
         self.btn_dash = self.create_nav_btn("📊  Dashboard", self.show_dashboard)
         self.btn_track = self.create_nav_btn("📝  Tracking & Logs", self.show_tracking)
-        self.btn_analytics = self.create_nav_btn("📈  Analytics", self.show_analytics) # <--- NEW BUTTON
+        self.btn_analytics = self.create_nav_btn("📈  Analytics", self.show_analytics)
         self.btn_learn = self.create_nav_btn("🎓  Knowledge Base", self.show_learning)
         self.btn_assess = self.create_nav_btn("🏆  Assessment", self.show_assessment)
         
         layout.addWidget(self.btn_dash)
         layout.addWidget(self.btn_track)
-        layout.addWidget(self.btn_analytics) # <--- ADD IT TO SIDEBAR
+        layout.addWidget(self.btn_analytics)
         layout.addWidget(self.btn_learn)
         layout.addWidget(self.btn_assess)
         
@@ -196,13 +196,13 @@ class MainWindow(QMainWindow):
         self.btn_track.setChecked(True)
 
     def show_analytics(self):
-            self.content_stack.setCurrentWidget(self.analytics)
-            self.analytics.refresh_data() 
-            self.btn_analytics.setChecked(True)
+        self.content_stack.setCurrentWidget(self.analytics)
+        self.analytics.refresh_data()
+        self.btn_analytics.setChecked(True)
 
     def show_learning(self):
         self.content_stack.setCurrentWidget(self.learning)
-        self.learning.refresh_data() # We will update learning.py next
+        self.learning.refresh_data()
         self.btn_learn.setChecked(True)
 
     def show_assessment(self):

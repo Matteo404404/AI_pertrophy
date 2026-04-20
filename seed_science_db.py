@@ -1,6 +1,5 @@
 """
-SCIENTIFIC HYPERTROPHY DATABASE SEEDER v3
-- Corrected Order of Operations (Exercises first, then Templates)
+Database seeder for exercises and workout templates.
 """
 
 import sqlite3

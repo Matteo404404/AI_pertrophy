@@ -11,7 +11,7 @@ Scientific References:
 - McDonald/Aragon: Beginners 20-25 lbs (9-11kg) first year for males
 - Minimum effective volume: 1 set 3x/week creates stimulus
 
-Author: Scientific Hypertrophy Trainer ML Team
+Author: Matteo
 """
 
 import numpy as np
@@ -340,7 +340,7 @@ class AdvancedDataGenerator:
                 'time_under_tension_min': 0
             }
         
-        # Base training volume (evidence-based) - FIXED: Higher volumes
+        # Base training volume (evidence-based)
         min_volume = self.MIN_EFFECTIVE_VOLUME[user.experience_level] + 4  # +4 sets minimum
         max_volume = self.MAX_RECOVERABLE_VOLUME[user.experience_level]
         
@@ -353,7 +353,7 @@ class AdvancedDataGenerator:
         consistency_effect = np.random.normal(user.consistency_factor, 0.1)
         
         total_sets = daily_sets * daily_variation * consistency_effect
-        total_sets = max(6, min(25, total_sets))  # FIXED: Higher minimum (6 instead of 3)
+        total_sets = max(6, min(25, total_sets))
         
         # Phase modifications
         if phase == 'cutting':

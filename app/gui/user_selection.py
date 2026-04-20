@@ -1,5 +1,5 @@
 """
-Scientific Hypertrophy Trainer - User Selection v3.0 (God-Tier UI)
+Scientific Hypertrophy Trainer - User Selection
 """
 
 from PyQt6.QtWidgets import (

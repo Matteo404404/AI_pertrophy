@@ -95,7 +95,7 @@ class LearningWidget(QWidget):
         self.tabs.addTab(self.create_skill_tab(), "🧠 My Skill Profile")
         self.tabs.addTab(self.create_library_tab(), "📚 Concept Library")
         self.tabs.addTab(self.create_mistakes_tab(), "⚠️ Mistake Review")
-        self.tabs.addTab(self.create_chat_tab(), "💬 Chat with AI Coach") # NEW TAB
+        self.tabs.addTab(self.create_chat_tab(), "💬 Chat with AI Coach")
         
         main_layout.addWidget(self.tabs)
 
@@ -163,7 +163,7 @@ class LearningWidget(QWidget):
         layout.addWidget(self.mistakes_area)
         return tab
 
-    # --- TAB 4: RAG CHATBOT (NEW) ---
+    # --- TAB 4: RAG CHATBOT ---
     def create_chat_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)

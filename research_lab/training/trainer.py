@@ -8,7 +8,6 @@ Handles:
 - Checkpoint saving
 - Learning rate scheduling
 
-Author: AI_PERTROPHY - Task 3
 """
 
 import torch

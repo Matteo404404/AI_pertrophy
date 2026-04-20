@@ -10,7 +10,7 @@ Usage:
     python trainer.py data.csv --user Alex      # Analyze specific user
     python trainer.py --generate-data 90        # Generate synthetic data
 
-Author: Scientific Hypertrophy Trainer Team
+Author: Matteo
 """
 
 import argparse

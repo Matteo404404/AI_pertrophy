@@ -10,7 +10,7 @@ Usage:
     python validate_data.py data.csv --detailed
     python validate_data.py data.csv --fix-output cleaned_data.csv
 
-Author: Scientific Hypertrophy Trainer Team
+Author: Matteo
 """
 
 import pandas as pd

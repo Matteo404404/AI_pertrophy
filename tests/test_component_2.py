@@ -4,7 +4,7 @@ Test Component 2: Synthetic Data Generation Validation
 Comprehensive testing suite for TDEE calculator and data generator,
 ensuring scientific accuracy and realistic parameter ranges.
 
-Author: Scientific Hypertrophy Trainer ML Team
+Author: Matteo
 """
 
 import sys

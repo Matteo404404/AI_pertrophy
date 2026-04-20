@@ -1,6 +1,5 @@
 """
-Scientific Hypertrophy Trainer - Elite Analytics Command Center
-Visualizes data with interactive custom charts, SFR Matrix, and LLM Debrief.
+Scientific Hypertrophy Trainer - Analytics
 """
 
 from PyQt6.QtWidgets import (

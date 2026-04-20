@@ -2,7 +2,6 @@
 Scientific Hypertrophy Trainer - Enhanced Database Manager
 
 SQLite database with workout system, body measurements, comprehensive tracking
-UPDATED FOR TASK 1: ML System Support Added
 """
 
 import sqlite3
@@ -21,7 +20,7 @@ class DatabaseManager:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.create_tables()
-        self.add_missing_columns()  # NEW: Add missing columns
+        self.add_missing_columns()
         self.create_demo_data()
     
     def ensure_database_directory(self):
@@ -208,10 +207,6 @@ class DatabaseManager:
                 FOREIGN KEY (exercise_id) REFERENCES exercises(id)
             )
         """)
-        
-        # ==========================================
-        # NEW ML SYSTEM TABLES - TASK 1
-        # ==========================================
         
         # Exercise Performance History (detailed per-exercise tracking)
         cursor.execute("""
@@ -504,10 +499,6 @@ class DatabaseManager:
         
         self.conn.commit()
     
-    # ==========================================
-    # EXISTING METHODS (UNCHANGED)
-    # ==========================================
-    
     def create_user(self, username, experience_level, primary_goal='hypertrophy', **kwargs):
         """Create a new user"""
         cursor = self.conn.cursor()
@@ -796,10 +787,6 @@ class DatabaseManager:
             'session': dict(session),
             'performances': [dict(perf) for perf in performances]
         }
-    
-    # ==========================================
-    # NEW ML SYSTEM METHODS - TASK 1
-    # ==========================================
     
     def store_exercise_performance(self, user_id, exercise_id, session_date, 
                                   weight_kg, reps, rir, total_sets, 
@@ -1093,7 +1080,7 @@ class DatabaseManager:
         """
         Retrieves training history for a specific exercise + daily biometrics.
         Returns a Pandas DataFrame ready for the ML Engine.
-        FIXED: Using ws.session_date to avoid ep.session_date error.
+        Uses ws.session_date for the date column.
         """
         import pandas as pd
         

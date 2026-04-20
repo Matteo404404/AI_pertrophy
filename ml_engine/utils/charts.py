@@ -1,6 +1,5 @@
 """
-Scientific Hypertrophy Trainer - Advanced Charting Engine (INTERACTIVE)
-Generates premium, dark-themed 'Athlete HUD' visualizations.
+Scientific Hypertrophy Trainer - Charting Engine
 """
 
 import numpy as np

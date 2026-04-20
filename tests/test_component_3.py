@@ -6,7 +6,7 @@ Testing the simplified lifting gains predictor that focuses on:
 2. "What RIR should I use?"
 3. "How long should I rest?"
 
-Author: Scientific Hypertrophy Trainer ML Team
+Author: Matteo
 """
 
 import sys

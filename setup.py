@@ -10,7 +10,7 @@ Usage after install:
     hypertrophy-trainer --demo
     validate-training-data data.csv
 
-Author: Scientific Hypertrophy Trainer Team
+Author: Matteo
 """
 
 from setuptools import setup, find_packages
@@ -42,9 +42,8 @@ setup(
     description="Evidence-based hypertrophy training predictions and recommendations",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    author="Scientific Hypertrophy Trainer Team",
-    author_email="contact@hypertrophytrainer.com",
-    url="https://github.com/your-username/scientific-hypertrophy-trainer",
+    author="Matteo",
+    url="https://github.com/Matteo404404/hyper_ai",
     
     # Package configuration
     packages=find_packages(),
@@ -107,8 +106,7 @@ setup(
     
     # Project URLs
     project_urls={
-        "Bug Reports": "https://github.com/your-username/scientific-hypertrophy-trainer/issues",
-        "Source": "https://github.com/your-username/scientific-hypertrophy-trainer",
-        "Documentation": "https://scientific-hypertrophy-trainer.readthedocs.io/",
+        "Bug Reports": "https://github.com/Matteo404404/hyper_ai/issues",
+        "Source": "https://github.com/Matteo404404/hyper_ai",
     },
 )

@@ -10,7 +10,7 @@ Implements realistic human adaptation using:
 - Protein dose-response (Morton et al. 2018: 1.6 g/kg inflection point)
 - Realistic within-person day-to-day variability
 
-Constant-feature problem FIXED: every feature now has realistic variance.
+Every feature has realistic inter-individual variance.
 """
 
 import numpy as np

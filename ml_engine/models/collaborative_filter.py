@@ -4,7 +4,6 @@ Collaborative Filtering System
 Finds similar users and generates predictions for new users based on
 the performance of similar users (cold-start problem solution).
 
-Author: Matteo - AI_PERTROPHY
 """
 
 import numpy as np

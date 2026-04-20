@@ -1,5 +1,5 @@
 """
-Scientific Exercise Library v4.0 (God-Tier UI)
+Scientific Exercise Library
 """
 
 from PyQt6.QtWidgets import (

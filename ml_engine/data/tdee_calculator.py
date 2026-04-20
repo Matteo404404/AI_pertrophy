@@ -13,7 +13,7 @@ References:
 - Activity multipliers: Validated ranges from DLW studies (Westerterp 2013)
 - Redman et al. 2009: TDEE reduction with caloric restriction (-431±51 kcal/d at 3 months)
 
-Author: Scientific Hypertrophy Trainer ML Team
+Author: Matteo
 """
 
 from typing import Dict, List, Optional, Tuple, Union

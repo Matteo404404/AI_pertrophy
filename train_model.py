@@ -1,16 +1,14 @@
 """
-Train Strength Prediction Model (Bulletproof Version)
+Train Strength Prediction Model
 
 Complete training pipeline:
 1. Generate synthetic data (5K users)
 2. Create PyTorch dataloaders
 3. Build and train LSTM model
-4. Save trained model & stats to the correct ML Engine folders
+4. Save trained model & stats
 
 Usage:
     python train_model.py --num_users 5000 --num_epochs 50
-
-Author: AI_PERTROPHY - Task 3
 """
 
 import argparse

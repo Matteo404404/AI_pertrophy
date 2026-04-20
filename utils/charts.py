@@ -1,5 +1,5 @@
 """
-Scientific Hypertrophy Trainer - Advanced Charting Engine (GOD TIER)
+Scientific Hypertrophy Trainer - Charting Engine
 """
 
 import numpy as np

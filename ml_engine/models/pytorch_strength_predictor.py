@@ -1,13 +1,11 @@
 """
 PyTorch LSTM Strength Predictor with Attention & Bayesian Uncertainty
 
-State-of-the-art architecture:
+Architecture:
 - LSTM encoder for sequence processing
 - Multi-head attention for feature importance
 - Bayesian uncertainty quantification
 - Multi-horizon prediction heads (1, 2, 4, 10 sessions)
-
-Author: AI_PERTROPHY - Task 3
 """
 
 import torch

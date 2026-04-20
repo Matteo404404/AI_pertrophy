@@ -8,7 +8,7 @@ Creates 20-dimensional user vectors based on:
 - Training style (volume, frequency, exercise selection)
 - Knowledge level (assessment scores)
 
-Author: Matteo - AI_PERTROPHY
+Author: Matteo
 """
 
 import numpy as np

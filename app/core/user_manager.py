@@ -112,7 +112,7 @@ class UserManager:
             'total_questions_answered': total_questions,
             'total_correct_answers': total_correct,
             'accuracy_percentage': accuracy,
-            'current_tier': tier_progress['current_tier'],  # Correct - extract the int # It's already an integer
+            'current_tier': tier_progress['current_tier'],
             'tiers_unlocked': sum([
                 tier_progress['tier_2_unlocked'],
                 tier_progress['tier_3_unlocked']
